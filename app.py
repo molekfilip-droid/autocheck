@@ -1,6 +1,6 @@
 import streamlit as st
-import openai
 import json
+import requests
 
 # Nastavení stránky
 st.set_page_config(page_title="AutoCheck CZ", page_icon="🚗")
@@ -10,7 +10,7 @@ st.subheader("Chytrá analýza ojetiny s podporou AI")
 
 # Sidebar pro API klíč
 st.sidebar.markdown("### Groq API Klíč (Zdarma)")
-api_key = st.sidebar.text_input("Vlož svůj Groq API Key", type="password")
+api_key = st.sidebar.text_input("Vlož svůj Groq API Key", type="password").strip()
 
 # --- SEKCE PRO NAČTENÍ Z TEXTU INZERÁTU ---
 st.markdown("### 📋 Automatické vyplnění z inzerátu")
@@ -26,6 +26,23 @@ if "form_model" not in st.session_state:
     st.session_state.form_fuel = "Benzín"
     st.session_state.form_gearbox = "Manuální"
 
+def call_groq(prompt_text, max_tokens=1000):
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "llama-3.1-8b-instant",
+        "messages": [{"role": "user", "content": prompt_text}],
+        "temperature": 0.2,
+        "max_tokens": max_tokens
+    }
+    response = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=10)
+    if response.status_code != 200:
+        raise Exception(f"API Error {response.status_code}: {response.text}")
+    res_json = response.json()
+    return res_json["choices"][0]["message"]["content"].strip()
+
 if st.button("✨ Načíst data z textu"):
     if not api_key:
         st.error("Pro chytré načtení nejprve vlož Groq API klíč v levém panelu.")
@@ -34,10 +51,6 @@ if st.button("✨ Načíst data z textu"):
     else:
         with st.spinner("AI čte inzerát..."):
             try:
-                client = openai.OpenAI(
-                    base_url="https://api.groq.com/openai/v1",
-                    api_key=api_key
-                )
                 parse_prompt = f"""
                 Jsi parser inzerátů ojetých aut. Z následujícího textu inzerátu vytáhni údaje a vrať POUZE validní JSON (bez markdownu ```json):
                 Text inzerátu: "{ad_text_input}"
@@ -52,12 +65,7 @@ if st.button("✨ Načíst data z textu"):
                     "gearbox": "Manuální" nebo "Automatická"
                 }}
                 """
-                response = client.chat.completions.create(
-                    model="llama-3.1-8b-instant",
-                    messages=[{"role": "user", "content": parse_prompt}],
-                    temperature=0.1
-                )
-                res_text = response.choices[0].message.content.strip()
+                res_text = call_groq(parse_prompt)
                 if res_text.startswith("```json"): res_text = res_text[7:]
                 if res_text.endswith("```"): res_text = res_text[:-3]
                 
@@ -101,39 +109,28 @@ if submitted:
         st.error("Prosím, vlož v levém panelu svůj Groq API klíč.")
     else:
         with st.spinner('AI analyzuje trh a staví verdikt...'):
-            client = openai.OpenAI(
-                base_url="[https://api.groq.com/openai/v1](https://api.groq.com/openai/v1)",
-                api_key=api_key
-            )
-            
-            prompt = f"""
-            Jsi špičkový český automechanik a expert na trh ojetých vozů v ČR. 
-            Analyzuj toto auto: Model: {model}, Rok: {year}, Nájezd: {km} km, Cena: {price} Kč, Palivo: {fuel}, Převodovka: {gearbox}.
-            Vrať odpověď POUZE jako validní JSON objekt s těmito klíči (bez markdown formátování jako ```json):
-            {{
-                "verdict": "🟢 ZAJÍMAVÁ NABÍDKA" nebo "🟡 MÍRNĚ PŘEDRAŽENO" nebo "🔴 PŘEDRAŽENO / NEBRAT",
-                "fair_price_min": odhadovaná minimální férová cena v Kč (číslo),
-                "fair_price_max": odhadovaná maximální férová cena v Kč (číslo),
-                "price_ratio_text": "krátký text o poměru ceny a nájezdu v češtině",
-                "servicing_cost": "odhad servisu na 2 roky (např. 25 000 – 40 000 Kč)",
-                "checklist": [
-                    "položka kontroly 1",
-                    "položka kontroly 2",
-                    "položka kontroly 3",
-                    "položka kontroly 4",
-                    "položka kontroly 5"
-                ]
-            }}
-            """
-            
             try:
-                response = client.chat.completions.create(
-                    model="llama-3.1-8b-instant",
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.3
-                )
+                prompt = f"""
+                Jsi špičkový český automechanik a expert na trh ojetých vozů v ČR. 
+                Analyzuj toto auto: Model: {model}, Rok: {year}, Nájezd: {km} km, Cena: {price} Kč, Palivo: {fuel}, Převodovka: {gearbox}.
+                Vrať odpověď POUZE jako validní JSON objekt s těmito klíči (bez markdown formátování jako ```json):
+                {{
+                    "verdict": "🟢 ZAJÍMAVÁ NABÍDKA" nebo "🟡 MÍRNĚ PŘEDRAŽENO" nebo "🔴 PŘEDRAŽENO / NEBRAT",
+                    "fair_price_min": odhadovaná minimální férová cena v Kč (číslo),
+                    "fair_price_max": odhadovaná maximální férová cena v Kč (číslo),
+                    "price_ratio_text": "krátký text o poměru ceny a nájezdu v češtině",
+                    "servicing_cost": "odhad servisu na 2 roky (např. 25 000 – 40 000 Kč)",
+                    "checklist": [
+                        "položka kontroly 1",
+                        "položka kontroly 2",
+                        "položka kontroly 3",
+                        "položka kontroly 4",
+                        "položka kontroly 5"
+                    ]
+                }}
+                """
                 
-                result_text = response.choices[0].message.content.strip()
+                result_text = call_groq(prompt)
                 if result_text.startswith("```json"):
                     result_text = result_text[7:]
                 if result_text.endswith("```"):
