@@ -126,18 +126,21 @@ Parametry vozu:
 - Model: {model}
 - Rok výroby: {year}
 - Nájezd: {km} km
-- Cena: {price} Kč
+- Požadovaná inzerovaná cena: {price} Kč
 - Palivo: {fuel}
 - Převodovka: {gearbox}
 - Výbava/Inzerát: {clean_full_ad}
 
-Odpověz PŘESNĚ v tomto formátu JSON (nezapomeň uzavírat všechny řetězce uvozovkami, nepoužívej neescapované uvozovky uvnitř textů):
+Důležité pravidlo pro konzistenci: Nejdříve reálně porovnej inzerovanou cenu ({price} Kč) s férovou tržní hodnotou. 
+- Pokud je inzerovaná cena výrazně nad trhem, verdikt MUSÍ být "🔴 RUCE PRYČ / PŘEDRAŽENO" nebo "🟡 ZVÁŽIT / JEDNAT O CENU". Zelený verdikt "🟢 KUPUJ / VÝBORNÁ NABÍDKA" použij POUZE tehdy, když je cena férová nebo výhodná.
+
+Odpověz PŘESNĚ v tomto formátu JSON (nezapomeň uzavírat řetězce uvozovkami):
 {{
-    "verdict": "🟢 KUPUJ / VÝBORNÁ NABÍDKA",
+    "verdict": "Zvol buď 🟢 KUPUJ / VÝBORNÁ NABÍDKA, 🟡 ZVÁŽIT / JEDNAT O CENU, nebo 🔴 RUCE PRYČ / PŘEDRAŽENO",
     "verdict_summary": "Stručné shrnutí stavu a nabídky v jedné větě.",
     "fair_price_min": 100000,
     "fair_price_max": 150000,
-    "price_evaluation": "Zhodnocení ceny vzhledem k trhu.",
+    "price_evaluation": "Zhodnocení ceny vzhledem k trhu a porovnání s požadovanou cenou.",
     "engine_gearbox_analysis": "Odborný rozbor motoru a převodovky.",
     "common_failures": [
         "První typická slabina motoru či vozu",
@@ -150,7 +153,7 @@ Odpověz PŘESNĚ v tomto formátu JSON (nezapomeň uzavírat všechny řetězce
         "Druhá věc k zkontrolování",
         "Třetí věc k zkontrolování"
     ],
-    "recommendation": "Závěrečné doporučení a taktika vyjednávání."
+    "recommendation": "Závěrečné doporučení a taktika vyjednávání o slevě."
 }}"""
 
                 res = call_groq(main_prompt, 4000)
@@ -160,14 +163,7 @@ Odpověz PŘESNĚ v tomto formátu JSON (nezapomeň uzavírat všechny řetězce
                 
                 match_main = re.search(r'\{.*\}', res, re.DOTALL)
                 if match_main:
-                    json_str = match_main.group(0)
-                    try:
-                        data = json.loads(json_str)
-                    except Exception:
-                        # Pokus o agresivnější vyčištění nebo náhradní parsování, pokud model udělá chybu v uvozovkách
-                        import ast
-                        # Nouzový fallback na bezpečnější slovník, kdyby JSON selhal
-                        raise Exception("Model vrátil poškozený JSON formát. Zkus to prosím spustit znovu.")
+                    data = json.loads(match_main.group(0))
                 else:
                     raise Exception("Hlavní model nevrátil JSON blok.")
                 
