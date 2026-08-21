@@ -1,6 +1,5 @@
 import streamlit as st
 import requests
-import json
 
 
 # ============================================================
@@ -13,10 +12,9 @@ st.set_page_config(
     layout="wide"
 )
 
-# MODEL
-MODEL = "llama-3.1-8b-instant"
-
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+
+MODEL = "openai/gpt-oss-20b"
 
 
 # ============================================================
@@ -72,14 +70,6 @@ st.markdown("""
 
 
 # ============================================================
-# SESSION
-# ============================================================
-
-if "analysis" not in st.session_state:
-    st.session_state.analysis = None
-
-
-# ============================================================
 # API KEY
 # ============================================================
 
@@ -103,7 +93,7 @@ def get_api_key():
 
 
 # ============================================================
-# GROQ
+# GROQ REQUEST
 # ============================================================
 
 def groq_call(prompt):
@@ -112,7 +102,7 @@ def groq_call(prompt):
 
     if not api_key:
         raise Exception(
-            "Chybí Groq API klíč."
+            "Chybí Groq API Key."
         )
 
     headers = {
@@ -121,7 +111,6 @@ def groq_call(prompt):
     }
 
     payload = {
-
         "model": MODEL,
 
         "messages": [
@@ -129,8 +118,8 @@ def groq_call(prompt):
                 "role": "system",
                 "content": (
                     "Jsi zkušený český expert "
-                    "na ojeté automobily. "
-                    "Odpovídej česky, věcně a prakticky."
+                    "na ojetá auta. "
+                    "Piš česky, konkrétně a prakticky."
                 )
             },
             {
@@ -141,7 +130,7 @@ def groq_call(prompt):
 
         "temperature": 0.2,
 
-        "max_tokens": 1800
+        "max_tokens": 1200
     }
 
     response = requests.post(
@@ -158,9 +147,9 @@ def groq_call(prompt):
     if response.status_code == 429:
 
         try:
-            error = response.json()
+            data = response.json()
 
-            message = error.get(
+            message = data.get(
                 "error",
                 {}
             ).get(
@@ -177,28 +166,28 @@ def groq_call(prompt):
         )
 
     # --------------------------------------------------------
-    # OSTATNÍ CHYBY
+    # API ERROR
     # --------------------------------------------------------
 
     if response.status_code != 200:
 
         raise Exception(
-            f"Groq API chyba "
-            f"{response.status_code}:\n\n"
+            f"Groq API chyba {response.status_code}:\n\n"
             f"{response.text[:2000]}"
         )
+
+    # --------------------------------------------------------
+    # RESPONSE
+    # --------------------------------------------------------
 
     data = response.json()
 
     try:
 
-        return data[
-            "choices"
-        ][0][
-            "message"
-        ][
-            "content"
-        ].strip()
+        content = (
+            data["choices"][0]
+            ["message"]["content"]
+        )
 
     except Exception:
 
@@ -206,9 +195,17 @@ def groq_call(prompt):
             "Groq vrátil neočekávanou odpověď."
         )
 
+    if not content:
+
+        raise Exception(
+            "Groq vrátil prázdnou odpověď."
+        )
+
+    return content.strip()
+
 
 # ============================================================
-# ANALÝZA
+# ANALÝZA AUTA
 # ============================================================
 
 def analyze_car(ad_text):
@@ -219,66 +216,107 @@ Analyzuj tento inzerát ojetého automobilu.
 TEXT INZERÁTU:
 {ad_text}
 
-Jsi zkušený český nákupčí ojetých aut.
+Jsi odborník na nákup ojetých aut v ČR.
 
-Potřebuji praktickou analýzu pro člověka,
-který zvažuje koupi tohoto konkrétního auta.
+DŮLEŽITÉ:
 
-NIKDY nevymýšlej údaje, které nejsou v inzerátu.
+Nevymýšlej údaje, které nejsou známé.
 
-Pokud údaj neznáš, napiš "neuvedeno".
+Pokud něco není uvedeno,
+napiš "neuvedeno".
+
+Rozlišuj mezi údaji z inzerátu
+a typickými riziky daného modelu.
+
+Vytvoř praktický nákupní posudek.
 
 Použij přesně tuto strukturu:
 
-VERDIKT:
-KUPUJ / VYJEDNÁVAT / RUCE PRYČ
+# VERDIKT
 
-SKÓRE:
-číslo 1 až 10
+Vyber pouze:
 
-AUTO:
-značka, model, rok, motor, výkon,
-palivo, převodovka, nájezd, cena
+KUPUJ
 
-VÝBAVA:
-stručný seznam důležité výbavy
+VYJEDNÁVAT
 
-CENA:
-Zhodnoť, jestli cena odpovídá autu.
+RUCE PRYČ
+
+## SKÓRE
+
+0–10
+
+## AUTO
+
+Značka:
+Model:
+Rok:
+Motor:
+Výkon:
+Palivo:
+Převodovka:
+Nájezd:
+Cena:
+
+## VÝBAVA
+
+Vypiš důležitou výbavu.
+
+## 💰 CENA
+
 Uveď:
-- odhad férové ceny
-- doporučenou maximální cenu
-- cenu, na kterou začít vyjednávat
 
-TECHNIKA:
-Zhodnoť motor, převodovku a pohon.
-Uveď jejich silné a slabé stránky.
+Férová cena:
+Doporučená maximální cena:
+Cena pro zahájení vyjednávání:
 
-RIZIKA:
-Uveď nejdůležitější typické závady
-a rizika tohoto konkrétního auta.
-U každého napiš, jak ho při prohlídce ověřit.
+Krátce vysvětli proč.
 
-CHECKLIST:
-Napiš 8 až 12 konkrétních bodů,
-které má kupující při prohlídce zkontrolovat.
+## ⚙️ TECHNIKA
 
-SERVIS:
-Odhad nákladů na běžný servis
-a možné opravy během následujících 2 let.
+Zhodnoť konkrétní motor,
+převodovku a pohon.
 
-VYJEDNÁVÁNÍ:
+## ⚠️ RIZIKA
+
+Uveď 5 až 8 nejdůležitějších
+rizik tohoto konkrétního auta.
+
+U každého napiš,
+jak se dá ověřit.
+
+## 🔍 CHECKLIST
+
+Napiš 10 konkrétních věcí,
+které má kupující zkontrolovat
+před koupí.
+
+## 🔧 SERVIS
+
+Odhadni běžné servisní náklady
+na následující 2 roky.
+
+Uveď rozpětí v Kč.
+
+## 🤝 VYJEDNÁVÁNÍ
+
 Napiš konkrétní argumenty,
 kterými může kupující srazit cenu.
 
-ZÁVĚR:
-Jednoduše vysvětli, proč je verdikt
-KUPUJ, VYJEDNÁVAT nebo RUCE PRYČ.
+## 🏁 ZÁVĚR
 
-Buď konkrétní.
-Neopakuj zbytečně text inzerátu.
-Pokud něco nelze určit,
-jasně to přiznej.
+V několika větách vysvětli,
+jestli bys toto auto osobně jel
+prohlédnout a za jakých podmínek
+by dávalo smysl ho koupit.
+
+Buď realistický.
+
+Neslibuj jistotu tam,
+kde ji z inzerátu nelze zjistit.
+
+Nepopisuj zbytečně obecné informace.
+Zaměř se na konkrétní automobil.
 """
 
     return groq_call(prompt)
@@ -314,14 +352,20 @@ st.session_state.manual_api_key = api_key
 
 st.sidebar.markdown("---")
 
-st.sidebar.write("Použitý model:")
+st.sidebar.write(
+    "Použitý model:"
+)
 
 st.sidebar.code(
     MODEL
 )
 
-st.sidebar.caption(
-    "1 AI požadavek na jednu analýzu"
+st.sidebar.write(
+    "AI požadavků na analýzu:"
+)
+
+st.sidebar.success(
+    "1"
 )
 
 
@@ -345,7 +389,7 @@ st.markdown(
 
 
 # ============================================================
-# INZERÁT
+# VSTUP
 # ============================================================
 
 st.markdown(
@@ -354,16 +398,16 @@ st.markdown(
 
 ad_text = st.text_area(
     "Zkopíruj sem celý text inzerátu",
-    height=320,
+    height=350,
     placeholder=(
-        "Sem vlož text z Bazoše, "
-        "Sauto, TipCars nebo jiného autobazaru..."
+        "Sem vlož celý text z Bazoše, "
+        "Sauto, TipCars nebo autobazaru..."
     )
 )
 
 
 # ============================================================
-# SPUŠTĚNÍ
+# ANALÝZA
 # ============================================================
 
 if st.button(
@@ -396,11 +440,9 @@ if st.button(
                     ad_text
                 )
 
-                st.session_state.analysis = result
-
-                st.success(
-                    "✅ Analýza dokončena."
-                )
+                st.session_state[
+                    "analysis"
+                ] = result
 
             except Exception as e:
 
@@ -413,35 +455,35 @@ if st.button(
 # VÝSLEDEK
 # ============================================================
 
-if st.session_state.analysis:
+if "analysis" in st.session_state:
 
-    result = st.session_state.analysis
+    result = st.session_state["analysis"]
 
     st.markdown("---")
 
     # --------------------------------------------------------
-    # ZJIŠTĚNÍ VERDIKTU
+    # VERDIKT
     # --------------------------------------------------------
 
-    text_upper = result.upper()
+    upper = result.upper()
 
-    if "RUCE PRYČ" in text_upper:
+    if "RUCE PRYČ" in upper:
 
         verdict = "RUCE PRYČ"
-        css = "red"
         emoji = "🔴"
+        css = "red"
 
-    elif "VYJEDNÁVAT" in text_upper:
+    elif "VYJEDNÁVAT" in upper:
 
         verdict = "VYJEDNÁVAT"
-        css = "yellow"
         emoji = "🟡"
+        css = "yellow"
 
     else:
 
         verdict = "KUPUJ"
-        css = "green"
         emoji = "🟢"
+        css = "green"
 
 
     # --------------------------------------------------------
@@ -452,20 +494,27 @@ if st.session_state.analysis:
 
     for line in result.splitlines():
 
-        if "SKÓRE:" in line.upper():
+        if line.strip().upper().startswith(
+            "0–10"
+        ):
+            continue
 
-            score = (
-                line.split(
-                    ":",
-                    1
-                )[1].strip()
+        if "SKÓRE" in line.upper():
+
+            parts = line.split(
+                ":",
+                1
             )
+
+            if len(parts) == 2:
+
+                score = parts[1].strip()
 
             break
 
 
     # --------------------------------------------------------
-    # VERDIKT BOX
+    # BOX
     # --------------------------------------------------------
 
     st.markdown(
@@ -494,7 +543,7 @@ if st.session_state.analysis:
 
 
     # --------------------------------------------------------
-    # VÝSLEDEK
+    # CELÝ POSUDEK
     # --------------------------------------------------------
 
     st.markdown(
