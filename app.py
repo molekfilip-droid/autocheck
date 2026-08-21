@@ -15,7 +15,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# Aktuální stabilní model
 MODEL = "gemini-3.6-flash"
 
 
@@ -26,69 +25,110 @@ MODEL = "gemini-3.6-flash"
 st.markdown("""
 <style>
 
-.main-title {
+.block-container {
+    max-width: 1400px;
+    padding-top: 2rem;
+}
+
+.big-title {
     font-size: 42px;
     font-weight: 800;
     margin-bottom: 0;
 }
 
 .subtitle {
-    color: #8b95a7;
+    color: #9aa5b8;
     font-size: 17px;
-    margin-bottom: 25px;
+    margin-bottom: 30px;
 }
 
-.verdict {
-    padding: 28px;
-    border-radius: 18px;
+/* VERDIKT */
+
+.verdict-box {
+    padding: 25px;
+    border-radius: 16px;
     margin: 20px 0 30px 0;
-    border: 1px solid rgba(255,255,255,.12);
+    border: 1px solid rgba(255,255,255,0.12);
 }
 
-.green {
-    background: linear-gradient(135deg,#0b3024,#10231d);
+.verdict-green {
+    background: rgba(20, 120, 70, 0.18);
 }
 
-.yellow {
-    background: linear-gradient(135deg,#3a3010,#29230f);
+.verdict-yellow {
+    background: rgba(170, 130, 20, 0.18);
 }
 
-.red {
-    background: linear-gradient(135deg,#391414,#281010);
+.verdict-red {
+    background: rgba(150, 35, 35, 0.18);
 }
 
-.verdict-small {
+.verdict-label {
     color: #9aa5b8;
     font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 1px;
 }
 
-.verdict-title {
+.verdict-name {
     font-size: 34px;
     font-weight: 900;
+    margin-top: 5px;
 }
 
-.score {
-    font-size: 48px;
+.verdict-score {
+    font-size: 44px;
     font-weight: 900;
+    margin-top: 5px;
 }
 
-.card {
+/* INFO BOX */
+
+.info-box {
     padding: 18px;
-    border-radius: 14px;
-    border: 1px solid rgba(255,255,255,.10);
-    background: rgba(255,255,255,.035);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
     margin-bottom: 12px;
 }
 
-.card-label {
-    color: #8b95a7;
+.info-label {
+    color: #9aa5b8;
     font-size: 13px;
 }
 
-.card-value {
-    font-size: 21px;
+.info-value {
+    font-size: 20px;
     font-weight: 700;
     margin-top: 4px;
+}
+
+/* SECTION */
+
+.section-title {
+    margin-top: 35px;
+    margin-bottom: 15px;
+}
+
+/* PRICE */
+
+.price-box {
+    padding: 20px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(255,255,255,0.035);
+    text-align: center;
+}
+
+.price-label {
+    color: #9aa5b8;
+    font-size: 13px;
+}
+
+.price-value {
+    font-size: 25px;
+    font-weight: 800;
+    margin-top: 7px;
 }
 
 </style>
@@ -103,6 +143,7 @@ def get_api_key():
 
     try:
         api_key = st.secrets["GEMINI_API_KEY"]
+
     except Exception:
 
         raise Exception(
@@ -125,6 +166,7 @@ def get_api_key():
 
 ANALYSIS_SCHEMA = {
     "type": "object",
+
     "properties": {
 
         "verdict": {
@@ -146,6 +188,7 @@ ANALYSIS_SCHEMA = {
 
         "car": {
             "type": "object",
+
             "properties": {
 
                 "brand": {"type": "string"},
@@ -161,6 +204,7 @@ ANALYSIS_SCHEMA = {
                 "price": {"type": "string"}
 
             },
+
             "required": [
                 "brand",
                 "model",
@@ -184,7 +228,9 @@ ANALYSIS_SCHEMA = {
         },
 
         "price_analysis": {
+
             "type": "object",
+
             "properties": {
 
                 "fair_price": {"type": "string"},
@@ -193,6 +239,7 @@ ANALYSIS_SCHEMA = {
                 "explanation": {"type": "string"}
 
             },
+
             "required": [
                 "fair_price",
                 "good_buy_price",
@@ -202,7 +249,9 @@ ANALYSIS_SCHEMA = {
         },
 
         "technical": {
+
             "type": "object",
+
             "properties": {
 
                 "engine": {"type": "string"},
@@ -217,6 +266,7 @@ ANALYSIS_SCHEMA = {
                 }
 
             },
+
             "required": [
                 "engine",
                 "gearbox",
@@ -226,7 +276,9 @@ ANALYSIS_SCHEMA = {
         },
 
         "risks": {
+
             "type": "array",
+
             "items": {
 
                 "type": "object",
@@ -250,7 +302,9 @@ ANALYSIS_SCHEMA = {
         },
 
         "checklist": {
+
             "type": "array",
+
             "items": {
 
                 "type": "object",
@@ -270,7 +324,9 @@ ANALYSIS_SCHEMA = {
         },
 
         "service": {
+
             "type": "object",
+
             "properties": {
 
                 "normal": {"type": "string"},
@@ -279,6 +335,7 @@ ANALYSIS_SCHEMA = {
                 "two_year_total": {"type": "string"}
 
             },
+
             "required": [
                 "normal",
                 "likely_repairs",
@@ -288,7 +345,9 @@ ANALYSIS_SCHEMA = {
         },
 
         "negotiation": {
+
             "type": "array",
+
             "items": {
                 "type": "string"
             }
@@ -332,82 +391,73 @@ def analyze_car(ad_text):
     prompt = f"""
 Jsi seniorní český expert na ojeté automobily.
 
-Analyzuj KONKRÉTNÍ automobil podle níže vloženého inzerátu.
+Analyzuj KONKRÉTNÍ automobil podle tohoto inzerátu:
 
-==================================================
+========================
 INZERÁT
-==================================================
+========================
 
 {ad_text}
 
-==================================================
-CO CHCI ZJISTIT
-==================================================
+========================
+CÍL
+========================
 
-Kupující chce vědět:
+Kupující chce zjistit:
 
-1. Je to dobrá koupě?
-2. Je cena férová?
-3. Jaká jsou technická rizika?
-4. Co musí při prohlídce zkontrolovat?
-5. Kolik může stát servis?
-6. Kolik maximálně zaplatit?
-7. Jakými argumenty vyjednávat?
+- zda je auto dobrá koupě
+- zda odpovídá cena
+- technická rizika
+- co zkontrolovat
+- očekávané servisní náklady
+- maximální rozumnou nákupní cenu
+- argumenty pro vyjednávání
 
-==================================================
+========================
 PRAVIDLA
-==================================================
+========================
 
-NEVYMÝŠLEJ si údaje o konkrétním vozidle.
+Nevymýšlej si údaje.
 
-Pokud údaj v inzerátu není znám:
+Pokud údaj není uveden:
 
 "neuvedeno"
 
-Velmi důležité:
+Rozlišuj:
 
-Rozlišuj mezi:
+1. údaj z inzerátu
+2. typický problém konkrétního modelu
+3. věc, kterou je nutné ověřit
 
-- údajem uvedeným v inzerátu
-- typickým problémem konkrétního modelu/motoru
-- věcí, kterou je potřeba ověřit
+Buď konkrétní.
 
-Pokud si nejsi jistý, přiznej nejistotu.
+Nepoužívej obecné rady.
 
-Nepiš obecné rady typu:
-"zkontrolujte stav vozidla".
-
-Chci konkrétní rady pro KONKRÉTNÍ auto.
-
-==================================================
+========================
 VERDIKT
-==================================================
+========================
 
 KUPUJ:
-Auto je zajímavá koupě a cena odpovídá stavu.
+Dobrá nabídka.
 
 VYJEDNÁVAT:
 Auto může být dobré, ale je potřeba vyjednat cenu
-nebo před koupí ověřit některá rizika.
+nebo ověřit rizika.
 
 RUCE PRYČ:
-Auto je výrazně předražené nebo má zásadní rizika.
+Příliš rizikové nebo předražené.
 
-Skóre:
+Skóre 1–10.
 
-1 = velmi špatná koupě
-
-10 = mimořádně dobrá koupě
-
-==================================================
+========================
 CENA
-==================================================
+========================
 
 Odhadni:
 
 - férovou cenu
-- cenu, za kterou je to opravdu dobrý nákup
-- maximální cenu, kterou bys osobně zaplatil
+- dobrou nákupní cenu
+- maximální cenu
 
 Zohledni:
 
@@ -417,23 +467,22 @@ Zohledni:
 - převodovku
 - výkon
 - výbavu
-- typ karoserie
-- stav popsaný v inzerátu
+- karoserii
+- stav
+- cenu v inzerátu
 
-Nedávej falešnou přesnost.
+========================
+TECHNIKA
+========================
 
-==================================================
-MOTOR A PŘEVODOVKA
-==================================================
+Analyzuj konkrétní motor a převodovku.
 
-Buď maximálně konkrétní.
-
-Podle konkrétní motorizace posuď například:
+Zaměř se na relevantní věci:
 
 - rozvody
 - turbo
-- vstřikování
-- olejovou spotřebu
+- vstřiky
+- olej
 - chlazení
 - DPF
 - EGR
@@ -441,75 +490,63 @@ Podle konkrétní motorizace posuď například:
 - dvouhmotu
 - spojku
 - DSG
-- automatickou převodovku
+- automat
 - podvozek
 - elektroniku
 
-Používej pouze relevantní věci.
-
-==================================================
+========================
 RIZIKA
-==================================================
+========================
 
-Uveď maximálně 8 nejdůležitějších rizik.
+Maximálně 8.
 
-U každého napiš:
+U každého:
 
-1. Co je problém
-2. Jak se projevuje
-3. Jak ho ověřit
-4. Kolik může stát oprava
+- problém
+- projevy
+- jak ověřit
+- cena opravy
 
-==================================================
-PROHLÍDKA
-==================================================
+========================
+CHECKLIST
+========================
 
-Vytvoř 10 konkrétních bodů checklistu.
+10 konkrétních bodů pro prohlídku.
 
-Checklist musí být použitelný přímo při návštěvě auta.
-
-==================================================
+========================
 SERVIS
-==================================================
+========================
 
-Odhadni:
+Odhad:
 
 - běžný servis
 - pravděpodobné opravy
 - špatný scénář
-- celkové náklady na 2 roky
+- celkem za 2 roky
 
-Vše v Kč.
+Částky v Kč.
 
-==================================================
+========================
 VYJEDNÁVÁNÍ
-==================================================
+========================
 
-Napiš konkrétní argumenty,
-které může kupující použít proti prodejci.
+Konkrétní argumenty pro snížení ceny.
 
-Například:
-
-"Auto má 180 000 km a není doložená výměna X.
-Proto bych cenu srazil o přibližně Y Kč."
-
-Pouze pokud to dává smysl pro konkrétní auto.
-
-==================================================
+========================
 ZÁVĚR
-==================================================
+========================
 
-Na konci jednoznačně napiš:
+Napiš jednoznačně:
 
 - koupil bych / nekoupil bych
 - za jakou cenu
 - proč
 
-==================================================
+========================
 VÝSTUP
-==================================================
+========================
 
-Vrať POUZE validní JSON podle přiloženého schématu.
+Vrať pouze validní JSON podle schématu.
 
 Žádný Markdown.
 
@@ -520,19 +557,18 @@ Vrať POUZE validní JSON podle přiloženého schématu.
 Žádný text za JSON.
 """
 
-
-    # --------------------------------------------------------
-    # PRVNÍ POKUS
-    # --------------------------------------------------------
-
     try:
 
         response = client.models.generate_content(
             model=MODEL,
             contents=prompt,
+
             config=types.GenerateContentConfig(
+
                 response_mime_type="application/json",
+
                 response_schema=ANALYSIS_SCHEMA,
+
                 max_output_tokens=6000
             )
         )
@@ -540,10 +576,6 @@ Vrať POUZE validní JSON podle přiloženého schématu.
     except Exception as e:
 
         error_text = str(e)
-
-        # ----------------------------------------------------
-        # 503 RETRY
-        # ----------------------------------------------------
 
         if (
             "503" in error_text
@@ -555,39 +587,29 @@ Vrať POUZE validní JSON podle přiloženého schématu.
 
             st.warning(
                 "Gemini je momentálně přetížený. "
-                "Zkouším znovu..."
+                "Zkouším ještě jeden pokus..."
             )
 
             time.sleep(8)
 
-            try:
+            response = client.models.generate_content(
+                model=MODEL,
+                contents=prompt,
 
-                response = client.models.generate_content(
-                    model=MODEL,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json",
-                        response_schema=ANALYSIS_SCHEMA,
-                        max_output_tokens=6000
-                    )
+                config=types.GenerateContentConfig(
+
+                    response_mime_type="application/json",
+
+                    response_schema=ANALYSIS_SCHEMA,
+
+                    max_output_tokens=6000
                 )
-
-            except Exception as e2:
-
-                raise Exception(
-                    "Gemini je momentálně nedostupný.\n\n"
-                    f"První pokus:\n{error_text}\n\n"
-                    f"Druhý pokus:\n{e2}"
-                )
+            )
 
         else:
 
             raise e
 
-
-    # --------------------------------------------------------
-    # KONTROLA ODPOVĚDI
-    # --------------------------------------------------------
 
     if not response.text:
 
@@ -598,43 +620,54 @@ Vrať POUZE validní JSON podle přiloženého schématu.
 
     try:
 
-        result = json.loads(
+        return json.loads(
             response.text
         )
 
-    except json.JSONDecodeError:
+    except Exception:
 
         raise Exception(
-            "Gemini vrátil neplatný JSON.\n\n"
+            "Gemini vrátil neplatný JSON:\n\n"
             + response.text[:5000]
         )
 
 
-    return result
-
-
 # ============================================================
-# METRICKÁ KARTA
+# KARTA
 # ============================================================
 
 def metric(label, value):
 
     st.markdown(
         f"""
-        <div class="card">
-
-            <div class="card-label">
+        <div class="info-box">
+            <div class="info-label">
                 {label}
             </div>
-
-            <div class="card-value">
+            <div class="info-value">
                 {value}
             </div>
-
         </div>
         """,
         unsafe_allow_html=True
     )
+
+
+# ============================================================
+# HLAVIČKA
+# ============================================================
+
+st.markdown(
+    '<div class="big-title">🚗 AutoCheck CZ</div>',
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    '<div class="subtitle">'
+    'Expertní analýza ojetého automobilu'
+    '</div>',
+    unsafe_allow_html=True
+)
 
 
 # ============================================================
@@ -649,46 +682,17 @@ st.sidebar.success(
     "Gemini API aktivní"
 )
 
-st.sidebar.markdown("---")
-
 st.sidebar.write(
-    "Použitý model:"
+    "Model:"
 )
 
 st.sidebar.code(
     MODEL
 )
 
-st.sidebar.markdown("---")
-
-st.sidebar.caption(
-    "Strukturovaný JSON výstup"
-)
-
-st.sidebar.caption(
-    "Automatický retry při 503"
-)
-
 
 # ============================================================
-# HLAVIČKA
-# ============================================================
-
-st.markdown(
-    '<div class="main-title">🚗 AutoCheck CZ</div>',
-    unsafe_allow_html=True
-)
-
-st.markdown(
-    '<div class="subtitle">'
-    'Expertní analýza ojetého automobilu'
-    '</div>',
-    unsafe_allow_html=True
-)
-
-
-# ============================================================
-# VLOŽENÍ INZERÁTU
+# INZERÁT
 # ============================================================
 
 st.markdown(
@@ -777,43 +781,48 @@ if "analysis" in st.session_state:
 
     if verdict == "KUPUJ":
 
-        css = "green"
         emoji = "🟢"
+        css = "verdict-green"
 
     elif verdict == "VYJEDNÁVAT":
 
-        css = "yellow"
         emoji = "🟡"
+        css = "verdict-yellow"
 
     else:
 
-        css = "red"
         emoji = "🔴"
+        css = "verdict-red"
 
 
     st.markdown(
         f"""
-        <div class="verdict {css}">
+        <div class="verdict-box {css}">
 
-            <div class="verdict-small">
+            <div class="verdict-label">
                 NÁKUPNÍ VERDIKT
             </div>
 
-            <div class="verdict-title">
+            <div class="verdict-name">
                 {emoji} {verdict}
             </div>
 
-            <div class="score">
+            <div class="verdict-score">
                 {score}/10
-            </div>
-
-            <div style="font-size:17px;margin-top:10px;">
-                {summary}
             </div>
 
         </div>
         """,
         unsafe_allow_html=True
+    )
+
+    # Shrnutí už přes Streamlit
+    st.markdown(
+        "**Shrnutí:**"
+    )
+
+    st.write(
+        summary
     )
 
 
@@ -976,7 +985,6 @@ if "analysis" in st.session_state:
 
     st.markdown(
         "## 🛡️ Výbava"
-
     )
 
     equipment = data.get(
@@ -986,11 +994,17 @@ if "analysis" in st.session_state:
 
     if equipment:
 
-        for item in equipment:
+        cols = st.columns(2)
 
-            st.markdown(
-                f"✓ {item}"
-            )
+        for i, item in enumerate(
+            equipment
+        ):
+
+            with cols[i % 2]:
+
+                st.markdown(
+                    f"✓ {item}"
+                )
 
     else:
 
@@ -1050,7 +1064,7 @@ if "analysis" in st.session_state:
 
 
     st.markdown(
-        "### Co ověřit"
+        "### 🔎 Co ověřit"
     )
 
     for item in technical.get(
@@ -1087,7 +1101,7 @@ if "analysis" in st.session_state:
         ):
 
             st.markdown(
-                "**Jak se projevuje:**"
+                "**Jak se projevuje**"
             )
 
             st.write(
@@ -1097,9 +1111,8 @@ if "analysis" in st.session_state:
                 )
             )
 
-
             st.markdown(
-                "**Jak ověřit:**"
+                "**Jak ověřit**"
             )
 
             st.write(
@@ -1109,9 +1122,8 @@ if "analysis" in st.session_state:
                 )
             )
 
-
             st.markdown(
-                "**Cena opravy:**"
+                "**Cena opravy**"
             )
 
             st.write(
