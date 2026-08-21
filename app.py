@@ -81,11 +81,4 @@ if st.button("✨ Načíst data z textu inzerátu"):
                 parsed_data = json.loads(res_text.strip())
                 
                 st.session_state.form_model = parsed_data.get("model", st.session_state.form_model)
-                st.session_state.form_year = int(parsed_data.get("year", st.session_state.form_year))
-                st.session_state.form_km = int(parsed_data.get("km", st.session_state.form_km))
-                st.session_state.form_price = int(parsed_data.get("price", st.session_state.form_price))
-                st.session_state.form_fuel = parsed_data.get("fuel", st.session_state.form_fuel)
-                st.session_state.form_gearbox = parsed_data.get("gearbox", st.session_state.form_gearbox)
-                st.session_state.parsed_equipment = parsed_data.get("equipment_summary", "Výbava nebyla specificky detekována.")
-                
-                st.success("Údaje a výbava úspěšně
+                st.session_state.form_year = int(parsed_data.get("year", st.session_state.
