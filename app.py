@@ -17,6 +17,7 @@ api_key = st.sidebar.text_input("Groq API Key", value=default_key, type="passwor
 st.markdown("### 📋 Automatické vyplnění z inzerátu")
 ad_text_input = st.text_area("Zkopíruj text inzerátu (popis, výbavu, parametry)...", placeholder="Sem vlož inzerát z Bazoše, Sauta apod...")
 
+# Inicializace session state pro formulář i tabulku
 if "form_model" not in st.session_state:
     st.session_state.form_model = ""
     st.session_state.form_year = 2020
@@ -80,8 +81,31 @@ Text inzerátu: "{clean_ad}"
                 st.warning(f"Pozor: Automatické vyplnění selhalo ({e}), text inzerátu byl uložen do výbavy.")
 
 st.markdown("---")
-st.markdown("### 🔍 Přehled načtených parametrů a výbavy")
 
+with st.form("car_form"):
+    st.markdown("### ⚙️ Úprava parametrů vozidla")
+    c1, c2 = st.columns(2)
+    
+    # Používáme klíče (key), aby Streamlit automaticky propisoval hodnoty do st.session_state
+    model = c1.text_input("Značka a model", value=st.session_state.form_model, key="form_model")
+    year = c2.number_input("Rok výroby", min_value=1990, max_value=2026, value=st.session_state.form_year, key="form_year")
+    km = c1.number_input("Nájezd (km)", min_value=0, value=st.session_state.form_km, step=1000, key="form_km")
+    price = c2.number_input("Cena (Kč)", min_value=0, value=st.session_state.form_price, step=10000, key="form_price")
+    
+    f_opts = ["Benzín", "Nafta", "Hybrid", "Elektro"]
+    f_idx = f_opts.index(st.session_state.form_fuel) if st.session_state.form_fuel in f_opts else 0
+    fuel = st.selectbox("Palivo", f_opts, index=f_idx, key="form_fuel")
+    
+    g_opts = ["Manuální", "Automatická"]
+    g_idx = g_opts.index(st.session_state.form_gearbox) if st.session_state.form_gearbox in g_opts else 0
+    gearbox = st.selectbox("Převodovka", g_opts, index=g_idx, key="form_gearbox")
+    
+    submitted = st.form_submit_button("🚀 Spustit hloubkovou expertní analýzu")
+
+st.markdown("---")
+st.markdown("### 🔍 Přehled parametrů a výbavy")
+
+# Tady se tabulka i výbava vykreslují přímo ze st.session_state, takže se aktualizují hned při změně ve formuláři
 col_t1, col_t2 = st.columns(2)
 
 with col_t1:
@@ -106,35 +130,15 @@ with col_t2:
     else:
         st.info(eq_val)
 
-st.markdown("---")
-
-with st.form("car_form"):
-    st.markdown("### ⚙️ Úprava parametrů před analýzou")
-    c1, c2 = st.columns(2)
-    model = c1.text_input("Značka a model", value=st.session_state.form_model)
-    year = c2.number_input("Rok výroby", min_value=1990, max_value=2026, value=st.session_state.form_year)
-    km = c1.number_input("Nájezd (km)", min_value=0, value=st.session_state.form_km, step=1000)
-    price = c2.number_input("Cena (Kč)", min_value=0, value=st.session_state.form_price, step=10000)
-    
-    f_opts = ["Benzín", "Nafta", "Hybrid", "Elektro"]
-    f_idx = f_opts.index(st.session_state.form_fuel) if st.session_state.form_fuel in f_opts else 0
-    fuel = st.selectbox("Palivo", f_opts, index=f_idx)
-    
-    g_opts = ["Manuální", "Automatická"]
-    g_idx = g_opts.index(st.session_state.form_gearbox) if st.session_state.form_gearbox in g_opts else 0
-    gearbox = st.selectbox("Převodovka", g_opts, index=g_idx)
-    
-    submitted = st.form_submit_button("🚀 Spustit hloubkovou expertní analýzu")
-
 if submitted:
     if not api_key:
         st.error("Chybí Groq API klíč.")
-    elif not model.strip():
+    elif not st.session_state.form_model.strip():
         st.warning("Zadej značku a model vozidla.")
     else:
         with st.spinner("Prohledávám trh a generuji hloubkový posudek..."):
             try:
-                search_query = f"{model} {year} cena ojetiny bazar"
+                search_query = f"{st.session_state.form_model} {st.session_state.form_year} cena ojetiny bazar"
                 search_url = f"https://html.duckduckgo.com/html/?q={requests.utils.quote(search_query)}"
                 headers_ddg = {"User-Agent": "Mozilla/5.0"}
                 web_snippets = "Tržní data nedostupná."
@@ -149,7 +153,7 @@ if submitted:
                     pass
 
                 main_prompt = f"""Jsi špičkový český automobilový expert. Napiš PODROBNÝ expertní posudek pro:
-                Model: {model}, Rok: {year}, Nájezd: {km} km, Cena: {price} Kč, Palivo: {fuel}, Převodovka: {gearbox}
+                Model: {st.session_state.form_model}, Rok: {st.session_state.form_year}, Nájezd: {st.session_state.form_km} km, Cena: {st.session_state.form_price} Kč, Palivo: {st.session_state.form_fuel}, Převodovka: {st.session_state.form_gearbox}
                 Výbava: {st.session_state.parsed_equipment}
                 Tržní kontext: {web_snippets}
 
