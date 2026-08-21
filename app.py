@@ -35,7 +35,7 @@ def call_groq(prompt_text, max_tokens=800):
         "max_tokens": max_tokens
     }
     
-    # Bezpečnostní pauza před každým voláním, aby nedošlo k překročení limitu tokenů za minutu (TPM)
+    # Bezpečnostní pauza proti překročení limitu tokenů za minutu (TPM)
     time.sleep(3)
     
     response = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=45)
@@ -172,7 +172,7 @@ Odpověz PŘESNĚ v tomto JSON formátu:
                 res = re.sub(r'^```\s*', '', res, flags=re.IGNORECASE)
                 res = re.sub(r'\s*```$', '', res)
                 
-                match_main = re.search(r'\{.*\}', res, res.DOTALL)
+                match_main = re.search(r'\{.*\}', res, re.DOTALL)
                 if match_main:
                     data = json.loads(match_main.group(0))
                 else:
