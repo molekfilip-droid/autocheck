@@ -36,7 +36,10 @@ def call_groq(prompt_text, max_tokens=3000):
     response = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=30)
     if response.status_code != 200:
         raise Exception(f"API Error {response.status_code}: {response.text}")
-    return response.json()["choices"][0]["message"]["content"].strip()
+    res_json = response.json()
+    if "choices" not in res_json or len(res_json["choices"]) == 0:
+        raise Exception("API vrátilo prázdnou odpověď.")
+    return res_json["choices"][0]["message"]["content"].strip()
 
 if st.button("✨ Načíst data z textu inzerátu"):
     if not api_key:
@@ -46,24 +49,32 @@ if st.button("✨ Načíst data z textu inzerátu"):
     else:
         with st.spinner("AI parsuje inzerát a detekuje výbavu..."):
             try:
-                clean_ad = ad_text_input.replace('"', "'").replace('\n', ' ')
-                p_text = f"""Jsi špičkový parser inzerátů ojetých vozů. Z následujícího textu extrahuj klíčové parametry a detailně shrň výbavu. Vrať POUZE validní JSON, žádný markdown. Vše v češtině!
+                # Oříznutí textu, aby nedocházelo k přetečení tokenů
+                clean_ad = ad_text_input.replace('"', "'").replace('\n', ' ')[:3000]
+                p_text = f"""Jsi parser inzerátů ojetých vozů. Z následujícího textu extrahuj klíčové parametry a detailně shrň výbavu. Vrať POUZE platný JSON (bez markdown bloků ```json ... ```). Vše v češtině!
 Text inzerátu: "{clean_ad}"
 
 Struktura JSON:
 {{
     "model": "přesná značka a model",
-    "year": rok výroby číslo,
-    "km": nájezd v km číslo,
-    "price": cena v Kč číslo,
-    "fuel": "Benzín" nebo "Nafta" nebo "Hybrid" nebo "Elektro",
-    "gearbox": "Manuální" nebo "Automatická",
-    "equipment_summary": "Kompletní detailní přehled prvků výbavy zmíněných v inzerátu (asistenti, světla, interiér, kola atd.)"
+    "year": 2020,
+    "km": 0,
+    "price": 0,
+    "fuel": "Benzín",
+    "gearbox": "Manuální",
+    "equipment_summary": "Kompletní detailní přehled prvků výbavy"
 }}"""
                 res = call_groq(p_text, 800)
+                
+                # Agresivní vyčištění výstupu od případného markdownu
                 res = re.sub(r'^```json\s*', '', res, flags=re.IGNORECASE)
                 res = re.sub(r'^```\s*', '', res)
                 res = re.sub(r'\s*```$', '', res)
+                
+                # Pokus o nalezení čistého JSON objektu v textu, kdyby AI kecala kolem
+                match = re.search(r'\{.*\}', res, re.DOTALL)
+                if match:
+                    res = match.group(0)
                 
                 data = json.loads(res.strip())
                 st.session_state.form_model = str(data.get("model", ""))
@@ -80,7 +91,7 @@ Struktura JSON:
                 st.session_state.parsed_equipment = str(data.get("equipment_summary", "Bez popisu výbavy."))
                 st.success("Údaje a výbava úspěšně načteny!")
             except Exception as e:
-                st.error(f"Chyba při parsování: {e}. Zkus text inzerátu vložit znovu.")
+                st.error(f"Chyba při parsování: {e}. Zkus kliknout na tlačítko znovu nebo upravit text.")
 
 st.markdown("---")
 
@@ -107,78 +118,4 @@ with st.form("car_form"):
 
 if submitted:
     if not api_key:
-        st.error("Chybí Groq API klíč.")
-    elif not model.strip():
-        st.warning("Zadej značku a model vozidla.")
-    else:
-        with st.spinner("Špičkový mechanik prověřuje techniku, reálnou výbavu a trh..."):
-            try:
-                clean_full_ad = ad_text_input.replace('"', "'").replace('\n', ' ') if ad_text_input else "Neuveden"
-                
-                main_prompt = f"""Jsi přední český automobilový expert, mechanik a soudní znalec s 25 lety praxe. Proveď precizní, technicky bezchybnou a realistickou analýzu ojetého vozu pro český trh.
-
-Parametry vozidla:
-- Model: {model}
-- Rok výroby: {year}
-- Nájezd: {km} km
-- Cena: {price} Kč
-- Palivo: {fuel}
-- Převodovka: {gearbox}
-- Výbava a text inzerátu: {clean_full_ad}
-
-Přísná pravidla pro analýzu:
-1. **Analýza výbavy a ceny:** Pečlivě rozeber výbavu uvedenou v inzerátu. Zhodnoť, jak konkrétní prvky (např. LED Matrix, pohon 4x4, adaptivní podvozek, prémiový audio systém, asistenční pakety) reálně ovlivňují hodnotu a cenu vozidla na trhu v ČR. Žádné generické fráze, piš konkrétně o tom, co auto má nebo naopak postrádá.
-2. **Technická přesnost:** Používej správné technické termíny pro danou značku a model (např. správné typy převodovek, typy vstřikování, rozvodů a reálné známé slabiny dané motorizace). Zákaz vymýšlení nesmyslů (žádné dvourychlostní DSG nebo neexistující závady).
-3. **Reálný trh:** Odhadni férovou tržní cenu reálně vzhledem k roku, nájezdu a výbavě.
-
-Vrať POUZE validní JSON bez jakéhokoliv markdownu či komentářů v tomto přesném formátu:
-{{
-    "verdict": "🟢 KUPUJ / VÝBORNÁ NABÍDKA" nebo "🟡 ZVÁŽIT RIZIKA / MÍRNĚ PŘEDRAŽENO" nebo "🔴 RUCE PRYČ / VELKé RIZIKO",
-    "verdict_summary": "1-2 věty přesného shrnutí",
-    "fair_price_min": min cena číslo,
-    "fair_price_max": max cena číslo,
-    "price_evaluation": "Podrobný rozbor ceny s ohledem na konkrétní výbavu, stav trhu a nájezd v ČR",
-    "engine_gearbox_analysis": "Odborný technický rozbor motoru, převodovky a jejich specifik pro tento model",
-    "common_failures": ["Reálná slabina 1", "Reálná slabina 2", "Reálná slabina 3"],
-    "servicing_cost_2years": "Reálný odhad servisu na 2 roky s konkrétními položkami a částkami v Kč",
-    "inspection_checklist": ["Specifická kontrola pro tento vůz 1", "Kontrola 2", "Kontrola 3", "Kontrola 4"],
-    "recommendation": "Konkrétní doporučení pro vyjednávání a koupi"
-}}"""
-                
-                res = call_groq(main_prompt, 4000)
-                res = re.sub(r'^```json\s*', '', res, flags=re.IGNORECASE)
-                res = re.sub(r'^```\s*', '', res)
-                res = re.sub(r'\s*```$', '', res)
-                
-                data = json.loads(res.strip())
-                
-                st.markdown("---")
-                st.header(f"Výsledek auditu: {data['verdict']}")
-                st.info(data['verdict_summary'])
-                
-                ca, cb = st.columns(2)
-                with ca:
-                    st.metric("Odhadovaná férová cena", f"{data['fair_price_min']:,} - {data['fair_price_max']:,} Kč".replace(",", " "))
-                with cb:
-                    st.markdown("**🔧 Odhadovaný servis na 2 roky:**")
-                    st.success(data['servicing_cost_2years'])
-                
-                st.markdown("### 💰 Tržní hodnocení ceny a vlivu výbavy")
-                st.write(data['price_evaluation'])
-                
-                st.markdown("### ⚙️ Technický stav: Motor a převodovka")
-                st.write(data['engine_gearbox_analysis'])
-                
-                st.markdown("### ⚠️ Reálná rizika a slabiny modelu")
-                for f in data.get('common_failures', []):
-                    st.error(f"• {f}")
-                    
-                st.markdown("### 🔍 Inspekční checklist pro toto auto")
-                for chk in data.get('inspection_checklist', []):
-                    st.warning(f"✓ {chk}")
-                    
-                st.markdown("### 🏁 Závěrečné doporučení")
-                st.success(data['recommendation'])
-                
-            except Exception as e:
-                st.error(f"Chyba při generování analýzy: {e}")
+        st
