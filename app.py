@@ -35,7 +35,6 @@ if submitted:
         st.error("Prosím, vlož v levém panelu svůj Groq API klíč.")
     else:
         with st.spinner('AI analyzuje data...'):
-            # Inicializujeme klienta s Groq endpointem
             client = openai.OpenAI(
                 base_url="https://api.groq.com/openai/v1",
                 api_key=api_key
@@ -63,13 +62,12 @@ if submitted:
             
             try:
                 response = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
+                    model="llama-3.1-8b-instant",
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0.3
                 )
                 
                 result_text = response.choices[0].message.content.strip()
-                # Ošetření, kdyby model přesto přidal markdown
                 if result_text.startswith("```json"):
                     result_text = result_text[7:]
                 if result_text.endswith("```"):
@@ -77,7 +75,6 @@ if submitted:
                     
                 data = json.loads(result_text.strip())
                 
-                # Zobrazení výsledků
                 st.subheader(f"Výsledek: {data['verdict']}")
                 
                 st.metric("Odhadovaná férová cena", f"{data['fair_price_min']:,} - {data['fair_price_max']:,} Kč")
