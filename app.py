@@ -131,7 +131,7 @@ if submitted:
                     "fair_price_min": minimální férová trhová cena v Kč (číslo),
                     "fair_price_max": maximální férová trhová cena v Kč (číslo),
                     "price_evaluation": "Podrobný rozbor ceny vzhledem k aktuálnímu trhu v ČR, nájezdu a roku výroby",
-                    "engine_gearbox_analysis": "Detailní technický rozbor motoru a převodovky pro tento konkrétní model (typické slabiny, na co trpí, životnost rozvodů, vstřikovačů, turba nebo spojky/automatu)",
+                    "engine_gearbox_analysis": "Detailní technický rozbor motoru a převodovki pro tento konkrétní model (typické slabiny, na co trpí, životnost rozvodů, vstřikovačů, turba nebo spojky/automatu)",
                     "common_failures": [
                         "Specifická závada/bolístka tohoto modelu 1",
                         "Specifická závada/bolístka tohoto modelu 2",
@@ -165,7 +165,9 @@ if submitted:
                 with col_a:
                     st.metric("Odhadovaná férová cena", f"{data['fair_price_min']:,} - {data['fair_price_max']:,} Kč".replace(",", " "))
                 with col_b:
-                    st.metric("Odhadovaný servis na 2 roky", data['servicing_cost_2years'])
+                    # Místo zkrácené metriky použijeme čistý, plně čitelný box
+                    st.markdown("**🔧 Odhadovaný servis na 2 roky:**")
+                    st.success(data['servicing_cost_2years'])
                 
                 st.markdown("### 💰 Tržní hodnocení ceny")
                 st.write(data['price_evaluation'])
