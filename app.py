@@ -16,7 +16,7 @@ api_key = st.sidebar.text_input("Groq API Key", value=default_key, type="passwor
 st.markdown("### 📋 Automatické vyplnění z inzerátu")
 ad_text_input = st.text_area("Zkopíruj text inzerátu (popis, výbavu, parametry)...", placeholder="Sem vlož inzerát z Bazoše, Sauta apod...")
 
-if "form_model" not in sm.session_state if "form_model" in st.session_state else "form_model" not in st.session_state:
+if "form_model" not in st.session_state:
     st.session_state.form_model = ""
     st.session_state.form_year = 2020
     st.session_state.form_km = 0
@@ -74,7 +74,6 @@ Text inzerátu: "{clean_ad}"
                     st.session_state.form_gearbox = g_val if g_val in ["Manuální", "Automatická"] else "Manuální"
                     
                     if len(parts) > 6:
-                        # Převedeme HTML <br> zpět na řádkování pro Markdown
                         clean_eq = parts[6].strip().replace('<br>', '\n')
                         st.session_state.parsed_equipment = clean_eq
                     st.success("Data úspěšně načtena a vyčištěna!")
