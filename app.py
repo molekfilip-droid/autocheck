@@ -6,10 +6,15 @@ import json
 st.set_page_config(page_title="AutoCheck CZ", page_icon="🚗")
 
 st.title("🚗 AutoCheck CZ")
-st.subheader("Rychlá analýza ojetiny pomocí AI")
+st.subheader("Rychlá analýza ojetiny pomocí AI (zdarma přes Groq)")
 
-# Sidebar pro API klíč (aby ho uživatel mohl vložit nebo se načetl z prostředí)
-api_key = st.sidebar.text_input("OpenAI API Key", type="password")
+# Sidebar pro API klíč
+st.sidebar.markdown("### Jak získat klíč zdarma:")
+st.sidebar.markdown("1. Jdi na [console.groq.com/keys](https://console.groq.com/keys)")
+st.sidebar.markdown("2. Přihlas se (např. Google účtem)")
+st.sidebar.markdown("3. Vygeneruj a vlož klíč níže:")
+
+api_key = st.sidebar.text_input("Groq API Key", type="password")
 
 # Formulář
 with st.form("car_form"):
@@ -27,26 +32,52 @@ with st.form("car_form"):
 
 if submitted:
     if not api_key:
-        st.error("Prosím, vlož v levém panelu svůj OpenAI API klíč.")
+        st.error("Prosím, vlož v levém panelu svůj Groq API klíč.")
     else:
         with st.spinner('AI analyzuje data...'):
-            client = openai.OpenAI(api_key=api_key)
+            # Inicializujeme klienta s Groq endpointem
+            client = openai.OpenAI(
+                base_url="https://api.groq.com/openai/v1",
+                api_key=api_key
+            )
             
             prompt = f"""
-            Jsi expert na trh ojetých vozů v ČR. Analyzuj: {model}, {year}, {km} km, {price} Kč, {fuel}, {gearbox}.
-            Vrať odpověď POUZE jako JSON s těmito klíči: verdict, fair_price_min, fair_price_max, price_ratio_text, servicing_cost, checklist.
+            Jsi špičkový český automechanik a expert na trh ojetých vozů v ČR. 
+            Analyzuj toto auto: Model: {model}, Rok: {year}, Nájezd: {km} km, Cena: {price} Kč, Palivo: {fuel}, Převodovka: {gearbox}.
+            Vrať odpověď POUZE jako validní JSON objekt s těmito klíči (bez markdown formátování jako ```json):
+            {{
+                "verdict": "🟢 ZAJÍMAVÁ NABÍDKA" nebo "🟡 MÍRNĚ PŘEDRAŽENO" nebo "🔴 PŘEDRAŽENO / NEBRAT",
+                "fair_price_min": odhadovaná minimální férová cena v Kč (číslo),
+                "fair_price_max": odhadovaná maximální férová cena v Kč (číslo),
+                "price_ratio_text": "krátký text o poměru ceny a nájezdu v češtině",
+                "servicing_cost": "odhad servisu na 2 roky (např. 25 000 – 40 000 Kč)",
+                "checklist": [
+                    "položka kontroly 1",
+                    "položka kontroly 2",
+                    "položka kontroly 3",
+                    "položka kontroly 4",
+                    "položka kontroly 5"
+                ]
+            }}
             """
             
             try:
                 response = client.chat.completions.create(
-                    model="gpt-4o",
+                    model="llama-3.3-70b-versatile",
                     messages=[{"role": "user", "content": prompt}],
-                    response_format={ "type": "json_object" }
+                    temperature=0.3
                 )
-                data = json.loads(response.choices[0].message.content)
+                
+                result_text = response.choices[0].message.content.strip()
+                # Ošetření, kdyby model přesto přidal markdown
+                if result_text.startswith("```json"):
+                    result_text = result_text[7:]
+                if result_text.endswith("```"):
+                    result_text = result_text[:-3]
+                    
+                data = json.loads(result_text.strip())
                 
                 # Zobrazení výsledků
-                color = "green" if "ZAJÍMAVÁ" in data['verdict'] else "orange" if "MÍRNĚ" in data['verdict'] else "red"
                 st.subheader(f"Výsledek: {data['verdict']}")
                 
                 st.metric("Odhadovaná férová cena", f"{data['fair_price_min']:,} - {data['fair_price_max']:,} Kč")
@@ -58,4 +89,4 @@ if submitted:
                     st.write(f"- {item}")
                     
             except Exception as e:
-                st.error(f"Nastala chyba: {e}")
+                st.error(f"Nastala chyba při zpracování: {e}")
