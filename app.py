@@ -26,10 +26,10 @@ if "form_model" not in st.session_state:
     st.session_state.form_gearbox = "Manuální"
     st.session_state.parsed_equipment = "Zatím neuloženo – vlož inzerát a klikni na tlačítko výše."
 
-def call_groq(prompt_text, max_tokens=1500):
+def call_groq(prompt_text, max_tokens=1000):
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     payload = {
-        "model": "openai/gpt-oss-20b",
+        "model": "llama-3.3-70b-versatile",
         "messages": [{"role": "user", "content": prompt_text}],
         "temperature": 0.2,
         "max_tokens": max_tokens
@@ -48,8 +48,8 @@ if st.button("✨ Načíst data z textu inzerátu"):
         with st.spinner("AI vytahuje parametry a výbavu v češtině..."):
             try:
                 clean_ad = ad_text_input.replace('"', "'").replace('\n', ' ').replace('\r', ' ')
-                p_text = f"""Jsi český asistent. Z následujícího inzerátu vyextrahuj parametry. POZOR: Položku "equipment_summary" napiš VÝHRADNĚ V ČEŠTINĚ jako přehledný souhrn výbavy z textu (žádná angličtina!).
-Vrať PŘESNĚ tento JSON formát:
+                p_text = f"""Z následujícího inzerátu vyextrahuj parametry do JSON. Položku "equipment_summary" vyplň výhradně česky.
+Vrať PŘESNĚ tento formát (nic jiného):
 {{
     "model": "značka a model",
     "year": 2020,
@@ -57,11 +57,11 @@ Vrať PŘESNĚ tento JSON formát:
     "price": 0,
     "fuel": "Benzín",
     "gearbox": "Manuální",
-    "equipment_summary": "stručný přehled výbavy česky"
+    "equipment_summary": "přehled výbavy česky"
 }}
 Text: "{clean_ad}"
 """
-                res = call_groq(p_text, 1000)
+                res = call_groq(p_text, 600)
                 res = re.sub(r'^```json\s*', '', res, flags=re.IGNORECASE)
                 res = re.sub(r'^```\s*', '', res, flags=re.IGNORECASE)
                 res = re.sub(r'\s*```$', '', res)
@@ -87,7 +87,7 @@ Text: "{clean_ad}"
                 st.success("Data úspěšně načtena!")
             except Exception as e:
                 st.session_state.parsed_equipment = ad_text_input
-                st.warning(f"Pozor: Parsování narazilo na limit nebo problém ({e}), text byl zálohován.")
+                st.warning(f"Pozor: Parsování narazilo na problém ({e}), text byl zálohován.")
 
 st.markdown("---")
 
@@ -118,9 +118,9 @@ if submitted:
     elif not model.strip():
         st.warning("Zadej značku a model vozidla.")
     else:
-        with st.spinner("Prohledávám český trh a generuji posudek..."):
+        with st.spinner("Prohledávám trh a generuji posudek..."):
             try:
-                time.sleep(2)
+                time.sleep(1)
                 
                 search_query = f"{model} {year} cena ojetiny bazar"
                 search_url = f"[https://html.duckduckgo.com/html/?q=](https://html.duckduckgo.com/html/?q=){requests.utils.quote(search_query)}"
@@ -130,57 +130,42 @@ if submitted:
                 try:
                     resp_ddg = requests.get(search_url, headers=headers_ddg, timeout=10)
                     if resp_ddg.status_code == 200:
-                        # Jednoduché vytažení snippetů pomocí regulárního výrazu bez nutnosti BeautifulSoup
                         snippets = re.findall(r'<a class="result__snippet"[^>]*>(.*?)</a>', resp_ddg.text, re.DOTALL)
-                        clean_snippets = [re.sub(r'<[^>]+>', '', s).strip() for s in snippets[:4]]
+                        clean_snippets = [re.sub(r'<[^>]+>', '', s).strip() for s in snippets[:3]]
                         web_snippets = " ".join(clean_snippets)
                 except Exception:
-                    web_snippets = "Tržní data z webu nedostupná."
+                    web_snippets = "Tržní data nedostupná."
 
-                clean_full_ad = ad_text_input.replace('"', "'").replace('\n', ' ') if ad_text_input else "Neuveden"
                 extracted_equipment_desc = st.session_state.parsed_equipment
                 
-                main_prompt = f"""Jsi špičkový český automobilový expert na ojetá auta. Celá tvá odpověď, včetně všech popisků, hodnocení a položek, MUSÍ BÝT V ČEŠTINĚ.
+                main_prompt = f"""Jsi český automobilový expert. Celá odpověď musí být v češtině.
 
-Hodnocené vozidlo:
-- Model: {model}
-- Rok: {year}
-- Nájezd: {km} km
-- Inzerovaná cena: {price} Kč
-- Palivo: {fuel} | Převodovka: {gearbox}
-- Výbava: {extracted_equipment_desc}
-
-Reálné tržní stopy z webu:
-{web_snippets}
-
-Instrukce:
-1. Posudek piš střízlivě a reálně podle aktuální situace na českém trhu ojetin. Nevymýšlej si extrémní slevy, pokud je cena na trhu běžná. Respektuj reálnou hodnotu modelu.
-2. Zohledni konkrétní výbavu a stav.
-3. Nastav realistické rozpětí férové ceny (`fair_price_min` a `fair_price_max`).
+Vozidlo: {model}, Rok: {year}, Nájezd: {km} km, Cena: {price} Kč, Palivo: {fuel}, Převodovka: {gearbox}
+Výbava: {extracted_equipment_desc}
+Tržní data: {web_snippets}
 
 Odpověz PŘESNĚ v tomto JSON formátu (vše v češtině):
 {{
     "verdict": "🟢 KUPUJ / FÉROVÁ NABÍDKA nebo 🟡 ZVÁŽIT / JEDNAT O CENU nebo 🔴 RUCE PRYČ / PŘEDRAŽENO",
-    "verdict_summary": "Shrnutí v jedné větě česky.",
+    "verdict_summary": "Shrnutí v jedné větě.",
     "fair_price_min": 450000,
     "fair_price_max": 490000,
-    "price_evaluation": "Zhodnocení ceny s ohledem na výbavu a trh.",
+    "price_evaluation": "Zhodnocení ceny.",
     "engine_gearbox_analysis": "Rozbor motoru a převodovky.",
     "common_failures": [
         "Slabina 1",
         "Slabina 2",
         "Slabina 3"
     ],
-    "servicing_cost_2years": "Odhad servisních nákladů na 2 roky v Kč.",
+    "servicing_cost_2years": "Odhad servisních nákladů na 2 roky.",
     "inspection_checklist": [
         "Kontrola 1",
-        "Kontrola 2",
-        "Kontrola 3"
+        "Kontrola 2"
     ],
-    "recommendation": "Doporučení a taktika slevy."
+    "recommendation": "Doporučení a taktika."
 }}"""
 
-                res = call_groq(main_prompt, 2000)
+                res = call_groq(main_prompt, 1200)
                 res = re.sub(r'^```json\s*', '', res, flags=re.IGNORECASE)
                 res = re.sub(r'^```\s*', '', res, flags=re.IGNORECASE)
                 res = re.sub(r'\s*```$', '', res)
@@ -189,7 +174,7 @@ Odpověz PŘESNĚ v tomto JSON formátu (vše v češtině):
                 if match_main:
                     data = json.loads(match_main.group(0))
                 else:
-                    raise Exception("Hlavní model nevrátil JSON blok.")
+                    raise Exception("Model nevrátil JSON blok.")
                 
                 st.markdown("---")
                 st.header(f"Výsledek auditu: {data.get('verdict', 'Neznámý verdikt')}")
