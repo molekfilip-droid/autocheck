@@ -15,18 +15,12 @@ st.set_page_config(
     layout="wide"
 )
 
-
-# ============================================================
-# KONFIGURACE
-# ============================================================
-
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-
 MODEL = "openai/gpt-oss-20b"
 
 
 # ============================================================
-# CSS
+# VZHLED
 # ============================================================
 
 st.markdown("""
@@ -44,19 +38,11 @@ st.markdown("""
     margin-bottom: 25px;
 }
 
-.card {
-    background: #161b26;
-    border: 1px solid #252c39;
-    border-radius: 16px;
-    padding: 20px;
-    margin-bottom: 15px;
-}
-
 .verdict {
-    border-radius: 18px;
     padding: 25px;
+    border-radius: 18px;
     margin: 20px 0;
-    border: 1px solid rgba(255,255,255,.1);
+    border: 1px solid rgba(255,255,255,.10);
 }
 
 .green {
@@ -81,16 +67,20 @@ st.markdown("""
     font-weight: 900;
 }
 
+.card {
+    background: #161b26;
+    border: 1px solid #252c39;
+    border-radius: 16px;
+    padding: 20px;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
 
 # ============================================================
-# SESSION
+# SESSION STATE
 # ============================================================
-
-if "car" not in st.session_state:
-    st.session_state.car = None
 
 if "analysis" not in st.session_state:
     st.session_state.analysis = None
@@ -123,13 +113,10 @@ def get_api_key():
 
 
 # ============================================================
-# GROQ
+# GROQ API
 # ============================================================
 
-def groq_request(
-    prompt,
-    max_tokens=1500
-):
+def groq_call(prompt):
 
     api_key = get_api_key()
 
@@ -144,37 +131,46 @@ def groq_request(
     }
 
     payload = {
-
         "model": MODEL,
 
         "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "Jsi zkušený český expert na "
+                    "ojetá auta. "
+                    "Odpovídej přesně a konzervativně."
+                )
+            },
             {
                 "role": "user",
                 "content": prompt
             }
         ],
 
-        # GPT-OSS
         "reasoning_effort": "low",
 
-        # Nepotřebujeme dlouhé přemýšlení
-        "max_completion_tokens": max_tokens,
+        "max_completion_tokens": 1400,
 
         "temperature": 0.2,
 
-        # Garantovaný JSON
         "response_format": {
             "type": "json_schema",
+
             "json_schema": {
-                "name": "autocheck_result",
+                "name": "autocheck",
+
                 "strict": True,
+
                 "schema": {
+
                     "type": "object",
 
                     "properties": {
 
                         "car": {
                             "type": "object",
+
                             "properties": {
 
                                 "brand": {
@@ -258,6 +254,7 @@ def groq_request(
 
                         "verdict": {
                             "type": "string",
+
                             "enum": [
                                 "KUPUJ",
                                 "VYJEDNÁVAT",
@@ -289,11 +286,11 @@ def groq_request(
                             "type": "integer"
                         },
 
-                        "technical_score": {
+                        "price_score": {
                             "type": "number"
                         },
 
-                        "price_score": {
+                        "technical_score": {
                             "type": "number"
                         },
 
@@ -307,8 +304,11 @@ def groq_request(
 
                         "weaknesses": {
                             "type": "array",
+
                             "items": {
+
                                 "type": "object",
+
                                 "properties": {
 
                                     "title": {
@@ -342,6 +342,7 @@ def groq_request(
 
                         "checklist": {
                             "type": "array",
+
                             "items": {
                                 "type": "string"
                             }
@@ -357,6 +358,7 @@ def groq_request(
 
                         "negotiation_arguments": {
                             "type": "array",
+
                             "items": {
                                 "type": "string"
                             }
@@ -373,8 +375,8 @@ def groq_request(
                         "fair_price_high",
                         "recommended_max_price",
                         "negotiation_price",
-                        "technical_score",
                         "price_score",
+                        "technical_score",
                         "risk_score",
                         "technical_summary",
                         "weaknesses",
@@ -403,38 +405,20 @@ def groq_request(
 
     if response.status_code == 429:
 
-        retry = response.headers.get(
-            "retry-after",
-            "neznámý"
-        )
-
-        remaining = response.headers.get(
-            "x-ratelimit-remaining-tokens",
-            "neznámý"
-        )
-
-        reset = response.headers.get(
-            "x-ratelimit-reset-tokens",
-            "neznámý"
-        )
-
         raise Exception(
-            "GROQ RATE LIMIT 429\n\n"
-            f"Zbývající tokeny: {remaining}\n"
-            f"Reset tokenového limitu: {reset}\n"
-            f"Retry-After: {retry}\n\n"
-            f"Groq odpověď:\n{response.text[:1500]}"
+            "Groq odmítl požadavek kvůli RATE LIMITU.\n\n"
+            + response.text[:2000]
         )
 
     # --------------------------------------------------------
-    # OSTATNÍ CHYBY
+    # OSTATNÍ API CHYBY
     # --------------------------------------------------------
 
     if response.status_code != 200:
 
         raise Exception(
             f"Groq API chyba {response.status_code}:\n\n"
-            f"{response.text[:2000]}"
+            + response.text[:2000]
         )
 
     data = response.json()
@@ -445,149 +429,63 @@ def groq_request(
         indent=2
     )
 
-    content = (
-        data["choices"][0]["message"]["content"]
-    )
+    try:
+
+        content = data[
+            "choices"
+        ][0][
+            "message"
+        ][
+            "content"
+        ]
+
+    except Exception:
+
+        raise Exception(
+            "Groq vrátil neočekávanou odpověď."
+        )
 
     if not content:
+
         raise Exception(
             "Groq vrátil prázdnou odpověď."
         )
 
-    return json.loads(content)
-
-
-# ============================================================
-# TRŽNÍ VYHLEDÁVÁNÍ
-# ============================================================
-
-def search_market(
-    brand,
-    model,
-    year,
-    engine
-):
-
-    query = (
-        f"{brand} {model} {year} "
-        f"{engine or ''} cena ojeté auto"
-    )
-
-    url = (
-        "https://html.duckduckgo.com/html/?q="
-        + quote(query)
-    )
-
-    headers = {
-        "User-Agent":
-        "Mozilla/5.0"
-    }
-
     try:
 
-        response = requests.get(
-            url,
-            headers=headers,
-            timeout=15
-        )
-
-        if response.status_code != 200:
-            return []
-
-        html = response.text
-
-        titles = re.findall(
-            r'class="result__a"[^>]*>(.*?)</a>',
-            html,
-            re.DOTALL
-        )
-
-        snippets = re.findall(
-            r'class="result__snippet"[^>]*>(.*?)</',
-            html,
-            re.DOTALL
-        )
-
-        results = []
-
-        for i, title in enumerate(
-            titles[:8]
-        ):
-
-            title = re.sub(
-                r"<[^>]+>",
-                "",
-                title
-            ).strip()
-
-            snippet = ""
-
-            if i < len(snippets):
-
-                snippet = re.sub(
-                    r"<[^>]+>",
-                    "",
-                    snippets[i]
-                ).strip()
-
-            results.append(
-                {
-                    "title": title,
-                    "snippet": snippet
-                }
-            )
-
-        return results
+        return json.loads(content)
 
     except Exception:
-        return []
 
-
-# ============================================================
-# HLAVNÍ ANALÝZA – JEDEN REQUEST
-# ============================================================
-
-def analyze_car(
-    ad_text,
-    market_results
-):
-
-    market_text = "\n".join(
-        [
-            f"- {x['title']}: {x['snippet']}"
-            for x in market_results
-        ]
-    )
-
-    if not market_text:
-        market_text = (
-            "Tržní vyhledávání neposkytlo "
-            "použitelné výsledky."
+        raise Exception(
+            "Groq vrátil neplatný JSON:\n\n"
+            + content[:3000]
         )
 
-    prompt = f"""
-Jsi český expert na ojeté automobily.
 
-Analyzuj tento automobilový inzerát.
+# ============================================================
+# HLAVNÍ AI ANALÝZA
+# ============================================================
+
+def analyze_car(ad_text):
+
+    prompt = f"""
+Analyzuj následující český automobilový inzerát.
+
+Jsi expert na nákup ojetých automobilů.
 
 DŮLEŽITÉ:
 
-Pracuj pouze s informacemi,
-které jsou skutečně v inzerátu
-nebo v přiložených tržních výsledcích.
+Nevymýšlej údaje, které nejsou uvedené.
 
-Nevymýšlej konkrétní skutečnosti.
+Pokud nějaký parametr není známý,
+použij null.
 
 Rozlišuj mezi:
 
-1. skutečností uvedenou v inzerátu
-2. typickým rizikem dané motorizace
-3. věcí, kterou je nutné ověřit
-
-Cena musí být hodnocena realisticky.
-
-Pokud nemáš dostatek tržních dat,
-buď konzervativní.
+- skutečností uvedenou v inzerátu
+- typickou slabinou daného auta
+- věcí, kterou je nutné ověřit
 
 ---
 
@@ -597,37 +495,612 @@ TEXT INZERÁTU:
 
 ---
 
-TRŽNÍ VÝSLEDKY:
+ÚKOL:
 
-{market_text}
+1. Identifikuj konkrétní automobil.
 
----
+2. Extrahuj:
+   - značku
+   - model
+   - rok
+   - nájezd
+   - cenu
+   - motor
+   - výkon
+   - palivo
+   - převodovku
+   - karoserii
+   - pohon
+   - výbavu
 
-Vytvoř kompletní nákupní posudek.
+3. Vypiš tvrzení prodejce.
 
-Buď stručný, ale konkrétní.
+4. Zhodnoť technické riziko konkrétního motoru
+   a převodovky.
 
-U technických rizik uváděj
-především věci relevantní pro
-konkrétní motor, převodovku,
-rok a nájezd.
+5. Uveď typické slabiny.
 
-U ceny:
+6. U každé slabiny napiš,
+   jak ji ověřit při prohlídce.
 
-- odhadni férové rozpětí
-- doporuč maximální cenu
-- doporuč cenu, na kterou začít vyjednávat
+7. Vytvoř checklist před koupí.
 
-U verdiktu:
+8. Odhadni férovou cenu.
 
-KUPUJ =
-auto vypadá jako dobrá koupě
+9. Navrhni:
+   - maximální cenu
+   - cenu, na kterou začít vyjednávat
 
-VYJEDNÁVAT =
-auto může být dobré, ale cena/rizika
-vyžadují vyjednávání
+10. Odhadni servisní náklady
+    na následující 2 roky.
 
-RUCE PRYČ =
-výrazné riziko nebo nevýhodná koupě
+11. Dej finální verdikt:
 
-Nespoléhej slepě na tvrzení prodejce.
+KUPUJ
+VYJEDNÁVAT
+RUCE PRYČ
+
+Buď konzervativní.
+
+Pokud nemáš dost informací,
+výslovně počítej s nejistotou.
+
+Nevydávej tvrzení prodejce
+za ověřený fakt.
+
+Celkový výstup musí být stručný,
+ale praktický pro člověka,
+který chce auto skutečně koupit.
+"""
+
+    return groq_call(prompt)
+
+
+# ============================================================
+# SIDEBAR
+# ============================================================
+
+st.sidebar.title(
+    "⚙️ Nastavení"
+)
+
+try:
+
+    secret_key = st.secrets.get(
+        "GROQ_API_KEY",
+        ""
+    )
+
+except Exception:
+
+    secret_key = ""
+
+api_key = st.sidebar.text_input(
+    "Groq API Key",
+    value=secret_key,
+    type="password"
+)
+
+st.session_state.manual_api_key = api_key
+
+st.sidebar.markdown("---")
+
+st.sidebar.write(
+    "Model:"
+)
+
+st.sidebar.code(
+    MODEL
+)
+
+st.sidebar.write(
+    "AI požadavků na jedno auto:"
+)
+
+st.sidebar.success(
+    "1"
+)
+
+
+# ============================================================
+# HLAVNÍ STRÁNKA
+# ============================================================
+
+st.markdown(
+    '<div class="main-title">'
+    '🚗 AutoCheck CZ'
+    '</div>',
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    '<div class="subtitle">'
+    'Expertní analýza ojetého auta před koupí'
+    '</div>',
+    unsafe_allow_html=True
+)
+
+
+# ============================================================
+# INZERÁT
+# ============================================================
+
+st.markdown(
+    "## 📋 Vlož text inzerátu"
+)
+
+ad_text = st.text_area(
+    "Celý text inzerátu",
+    height=300,
+    placeholder=(
+        "Zkopíruj sem celý inzerát "
+        "z Bazoše, Sauto, TipCars apod."
+    )
+)
+
+
+# ============================================================
+# ANALÝZA
+# ============================================================
+
+if st.button(
+    "🚀 SPUSTIT ANALÝZU",
+    type="primary",
+    use_container_width=True
+):
+
+    if not api_key:
+
+        st.error(
+            "❌ Nejdříve zadej Groq API Key."
+        )
+
+    elif not ad_text.strip():
+
+        st.warning(
+            "⚠️ Vlož text automobilového inzerátu."
+        )
+
+    else:
+
+        with st.spinner(
+            "🤖 AI analyzuje automobil..."
+        ):
+
+            try:
+
+                result = analyze_car(
+                    ad_text
+                )
+
+                st.session_state.analysis = result
+
+                st.success(
+                    "✅ Analýza dokončena."
+                )
+
+            except Exception as e:
+
+                st.error(
+                    f"❌ {e}"
+                )
+
+                if st.session_state.debug:
+
+                    with st.expander(
+                        "🔧 Technická diagnostika"
+                    ):
+
+                        st.code(
+                            st.session_state.debug
+                        )
+
+
+# ============================================================
+# VÝSLEDEK
+# ============================================================
+
+if st.session_state.analysis:
+
+    result = st.session_state.analysis
+
+    car = result["car"]
+
+    verdict = result["verdict"]
+
+    score = result["score"]
+
+    # --------------------------------------------------------
+    # BARVA VERDIKTU
+    # --------------------------------------------------------
+
+    if verdict == "KUPUJ":
+
+        css = "green"
+        emoji = "🟢"
+
+    elif verdict == "RUCE PRYČ":
+
+        css = "red"
+        emoji = "🔴"
+
+    else:
+
+        css = "yellow"
+        emoji = "🟡"
+
+    st.markdown("---")
+
+    # --------------------------------------------------------
+    # VERDIKT
+    # --------------------------------------------------------
+
+    st.markdown(
+        f"""
+        <div class="verdict {css}">
+
+            <div style="
+                color:#9aa5b8;
+                font-size:15px;
+            ">
+                NÁKUPNÍ VERDIKT
+            </div>
+
+            <div class="verdict-title">
+                {emoji} {verdict}
+            </div>
+
+            <div class="score">
+                {score:.1f}/10
+            </div>
+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.info(
+        result["summary"]
+    )
+
+    # --------------------------------------------------------
+    # AUTO
+    # --------------------------------------------------------
+
+    st.markdown(
+        "## 🚘 Identifikace vozidla"
+    )
+
+    cols = st.columns(4)
+
+    with cols[0]:
+
+        st.metric(
+            "Model",
+            (
+                f"{car.get('brand') or ''} "
+                f"{car.get('model') or ''}"
+            ).strip()
+        )
+
+    with cols[1]:
+
+        st.metric(
+            "Rok",
+            car.get("year") or "-"
+        )
+
+    with cols[2]:
+
+        km = car.get(
+            "mileage_km"
+        )
+
+        st.metric(
+            "Nájezd",
+            f"{km:,} km"
+            if km
+            else "-"
+        )
+
+    with cols[3]:
+
+        price = car.get(
+            "price_czk"
+        )
+
+        st.metric(
+            "Cena",
+            f"{price:,} Kč"
+            if price
+            else "-"
+        )
+
+    # --------------------------------------------------------
+    # TECHNICKÉ PARAMETRY
+    # --------------------------------------------------------
+
+    st.markdown(
+        "### ⚙️ Technické údaje"
+    )
+
+    cols = st.columns(4)
+
+    with cols[0]:
+
+        st.write(
+            "**Motor**"
+        )
+
+        st.write(
+            car.get("engine") or "-"
+        )
+
+    with cols[1]:
+
+        st.write(
+            "**Výkon**"
+        )
+
+        power = car.get(
+            "power_kw"
+        )
+
+        st.write(
+            f"{power} kW"
+            if power
+            else "-"
+        )
+
+    with cols[2]:
+
+        st.write(
+            "**Převodovka**"
+        )
+
+        st.write(
+            car.get("gearbox") or "-"
+        )
+
+    with cols[3]:
+
+        st.write(
+            "**Palivo**"
+        )
+
+        st.write(
+            car.get("fuel") or "-"
+        )
+
+    # --------------------------------------------------------
+    # HODNOCENÍ
+    # --------------------------------------------------------
+
+    st.markdown("---")
+
+    st.markdown(
+        "## 📊 Hodnocení"
+    )
+
+    cols = st.columns(3)
+
+    with cols[0]:
+
+        st.metric(
+            "💰 Cena",
+            f"{result['price_score']}/10"
+        )
+
+    with cols[1]:
+
+        st.metric(
+            "⚙️ Technika",
+            f"{result['technical_score']}/10"
+        )
+
+    with cols[2]:
+
+        st.metric(
+            "⚠️ Riziko",
+            f"{result['risk_score']}/10"
+        )
+
+    # --------------------------------------------------------
+    # CENA
+    # --------------------------------------------------------
+
+    st.markdown("---")
+
+    st.markdown(
+        "## 💰 Tržní a cenové hodnocení"
+    )
+
+    cols = st.columns(3)
+
+    with cols[0]:
+
+        st.metric(
+            "Férová cena",
+            (
+                f"{result['fair_price_low']:,} – "
+                f"{result['fair_price_high']:,} Kč"
+            )
+        )
+
+    with cols[1]:
+
+        st.metric(
+            "Doporučené maximum",
+            f"{result['recommended_max_price']:,} Kč"
+        )
+
+    with cols[2]:
+
+        st.metric(
+            "Cíl vyjednávání",
+            f"{result['negotiation_price']:,} Kč"
+        )
+
+    # --------------------------------------------------------
+    # TECHNICKÁ ANALÝZA
+    # --------------------------------------------------------
+
+    st.markdown("---")
+
+    st.markdown(
+        "## ⚙️ Technická analýza"
+    )
+
+    st.write(
+        result["technical_summary"]
+    )
+
+    # --------------------------------------------------------
+    # SLABINY
+    # --------------------------------------------------------
+
+    st.markdown(
+        "### ⚠️ Typické slabiny"
+    )
+
+    for weakness in result[
+        "weaknesses"
+    ]:
+
+        with st.expander(
+            f"{weakness['title']} — "
+            f"{weakness['risk']}"
+        ):
+
+            st.write(
+                weakness["description"]
+            )
+
+            st.markdown(
+                "**Jak ověřit:**"
+            )
+
+            st.write(
+                weakness["check"]
+            )
+
+    # --------------------------------------------------------
+    # CHECKLIST
+    # --------------------------------------------------------
+
+    st.markdown("---")
+
+    st.markdown(
+        "## 🔍 Checklist před koupí"
+    )
+
+    for i, item in enumerate(
+        result["checklist"]
+    ):
+
+        st.checkbox(
+            item,
+            key=f"inspection_{i}"
+        )
+
+    # --------------------------------------------------------
+    # SERVIS
+    # --------------------------------------------------------
+
+    st.markdown("---")
+
+    st.markdown(
+        "## 🔧 Odhad servisu"
+    )
+
+    st.metric(
+        "Následující 2 roky",
+        (
+            f"{result['service_low']:,} – "
+            f"{result['service_high']:,} Kč"
+        )
+    )
+
+    # --------------------------------------------------------
+    # VÝBAVA
+    # --------------------------------------------------------
+
+    st.markdown("---")
+
+    st.markdown(
+        "## 🛡️ Výbava"
+    )
+
+    equipment = car.get(
+        "equipment",
+        []
+    )
+
+    if equipment:
+
+        for item in equipment:
+
+            st.markdown(
+                f"- ✅ {item}"
+            )
+
+    else:
+
+        st.write(
+            "Výbava nebyla v inzerátu "
+            "jednoznačně uvedena."
+        )
+
+    # --------------------------------------------------------
+    # TVRZENÍ PRODEJCE
+    # --------------------------------------------------------
+
+    claims = car.get(
+        "seller_claims",
+        []
+    )
+
+    if claims:
+
+        st.markdown("---")
+
+        st.markdown(
+            "## ⚠️ Tvrzení prodejce"
+        )
+
+        for claim in claims:
+
+            st.warning(
+                claim
+            )
+
+    # --------------------------------------------------------
+    # VYJEDNÁVÁNÍ
+    # --------------------------------------------------------
+
+    st.markdown("---")
+
+    st.markdown(
+        "## 🤝 Jak vyjednávat"
+    )
+
+    for argument in result[
+        "negotiation_arguments"
+    ]:
+
+        st.markdown(
+            f"- 💬 {argument}"
+        )
+
+
+# ============================================================
+# PATIČKA
+# ============================================================
+
+st.markdown("---")
+
+st.caption(
+    "AutoCheck CZ – experimentální MVP. "
+    "AI výsledek nenahrazuje fyzickou kontrolu "
+    "vozu, diagnostiku ani ověření VIN."
+)
