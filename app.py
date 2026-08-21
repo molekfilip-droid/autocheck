@@ -85,3 +85,44 @@ if st.button("✨ Načíst data z textu inzerátu"):
                 
                 st.success("Údaje úspěšně doplněny do formuláře!")
             except Exception as e:
+                st.error(f"Chyba při parsování: {e}")
+
+st.markdown("---")
+
+# --- FORMULÁŘ ---
+with st.form("car_form"):
+    st.markdown("### 🚗 Parametry vozidla")
+    col1, col2 = st.columns(2)
+    model = col1.text_input("Značka a model", value=st.session_state.form_model)
+    year = col2.number_input("Rok výroby", min_value=1990, max_value=2026, value=st.session_state.form_year)
+    
+    km = col1.number_input("Nájezd (km)", min_value=0, value=st.session_state.form_km)
+    price = col2.number_input("Cena (Kč)", min_value=0, value=st.session_state.form_price)
+    
+    fuel_options = ["Benzín", "Nafta", "Hybrid", "Elektro"]
+    default_fuel_idx = fuel_options.index(st.session_state.form_fuel) if st.session_state.form_fuel in fuel_options else 0
+    fuel = st.selectbox("Palivo", fuel_options, index=default_fuel_idx)
+    
+    gearbox_options = ["Manuální", "Automatická"]
+    default_gear_idx = gearbox_options.index(st.session_state.form_gearbox) if st.session_state.form_gearbox in gearbox_options else 0
+    gearbox = st.selectbox("Převodovka", gearbox_options, index=default_gear_idx)
+    
+    submitted = st.form_submit_button("🚀 Spustit hloubkovou expertní analýzu")
+
+if submitted:
+    if not api_key:
+        st.error("Chybí Groq API klíč.")
+    else:
+        with st.spinner('Špičkový mechanik a auditor prověřuje motor, převodovku, trh a rizika...'):
+            try:
+                prompt = f"""
+                Jsi hlavní šéfmechanik, soudní znalec a expert na trh ojetých vozů v ČR s 25 lety praxe. 
+                Proveď maximálně detailní, nekompromisní a hloubkovou analýzu tohoto vozidla:
+                - Model: {model}
+                - Rok výroby: {year}
+                - Nájezd: {km} km
+                - Cena: {price} Kč
+                - Palivo: {fuel}
+                - Převodovka: {gearbox}
+
+                ABSOLUTNÍ PRAVIDLO: Celá odpověď včetně všech popisů, hodnocení a položek musí být psaná 100% plynulou
