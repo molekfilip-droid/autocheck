@@ -26,14 +26,18 @@ if "form_model" not in st.session_state:
     st.session_state.form_gearbox = "Manuální"
     st.session_state.parsed_equipment = "Zatím neuloženo – vlož inzerát a klikni na tlačítko výše."
 
-def call_groq(prompt_text, max_tokens=1000):
+def call_groq(prompt_text, max_tokens=800):
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     payload = {
-        "model": "llama-3.3-70b-versatile",
+        "model": "openai/gpt-oss-20b",
         "messages": [{"role": "user", "content": prompt_text}],
         "temperature": 0.2,
         "max_tokens": max_tokens
     }
+    
+    # Bezpečnostní pauza před každým voláním, aby nedošlo k překročení limitu tokenů za minutu (TPM)
+    time.sleep(3)
+    
     response = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=45)
     if response.status_code != 200:
         raise Exception(f"API Error {response.status_code}: {response.text}")
@@ -48,8 +52,8 @@ if st.button("✨ Načíst data z textu inzerátu"):
         with st.spinner("AI vytahuje parametry a výbavu v češtině..."):
             try:
                 clean_ad = ad_text_input.replace('"', "'").replace('\n', ' ').replace('\r', ' ')
-                p_text = f"""Z následujícího inzerátu vyextrahuj parametry do JSON. Položku "equipment_summary" vyplň výhradně česky.
-Vrať PŘESNĚ tento formát (nic jiného):
+                p_text = f"""Z inzerátu extrahuj data do JSON. Položku "equipment_summary" vyplň výhradně česky.
+Vrať PŘESNĚ tento formát:
 {{
     "model": "značka a model",
     "year": 2020,
@@ -61,7 +65,7 @@ Vrať PŘESNĚ tento formát (nic jiného):
 }}
 Text: "{clean_ad}"
 """
-                res = call_groq(p_text, 600)
+                res = call_groq(p_text, 400)
                 res = re.sub(r'^```json\s*', '', res, flags=re.IGNORECASE)
                 res = re.sub(r'^```\s*', '', res, flags=re.IGNORECASE)
                 res = re.sub(r'\s*```$', '', res)
@@ -120,8 +124,6 @@ if submitted:
     else:
         with st.spinner("Prohledávám trh a generuji posudek..."):
             try:
-                time.sleep(1)
-                
                 search_query = f"{model} {year} cena ojetiny bazar"
                 search_url = f"[https://html.duckduckgo.com/html/?q=](https://html.duckduckgo.com/html/?q=){requests.utils.quote(search_query)}"
                 headers_ddg = {"User-Agent": "Mozilla/5.0"}
@@ -131,7 +133,7 @@ if submitted:
                     resp_ddg = requests.get(search_url, headers=headers_ddg, timeout=10)
                     if resp_ddg.status_code == 200:
                         snippets = re.findall(r'<a class="result__snippet"[^>]*>(.*?)</a>', resp_ddg.text, re.DOTALL)
-                        clean_snippets = [re.sub(r'<[^>]+>', '', s).strip() for s in snippets[:3]]
+                        clean_snippets = [re.sub(r'<[^>]+>', '', s).strip() for s in snippets[:2]]
                         web_snippets = " ".join(clean_snippets)
                 except Exception:
                     web_snippets = "Tržní data nedostupná."
@@ -144,7 +146,7 @@ Vozidlo: {model}, Rok: {year}, Nájezd: {km} km, Cena: {price} Kč, Palivo: {fue
 Výbava: {extracted_equipment_desc}
 Tržní data: {web_snippets}
 
-Odpověz PŘESNĚ v tomto JSON formátu (vše v češtině):
+Odpověz PŘESNĚ v tomto JSON formátu:
 {{
     "verdict": "🟢 KUPUJ / FÉROVÁ NABÍDKA nebo 🟡 ZVÁŽIT / JEDNAT O CENU nebo 🔴 RUCE PRYČ / PŘEDRAŽENO",
     "verdict_summary": "Shrnutí v jedné větě.",
@@ -165,7 +167,7 @@ Odpověz PŘESNĚ v tomto JSON formátu (vše v češtině):
     "recommendation": "Doporučení a taktika."
 }}"""
 
-                res = call_groq(main_prompt, 1200)
+                res = call_groq(main_prompt, 900)
                 res = re.sub(r'^```json\s*', '', res, flags=re.IGNORECASE)
                 res = re.sub(r'^```\s*', '', res, flags=re.IGNORECASE)
                 res = re.sub(r'\s*```$', '', res)
