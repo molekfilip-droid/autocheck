@@ -2,6 +2,7 @@ import streamlit as st
 import json
 import requests
 import re
+import time
 
 st.set_page_config(page_title="AutoCheck CZ", page_icon="🚗", layout="wide")
 
@@ -25,7 +26,7 @@ if "form_model" not in st.session_state:
     st.session_state.form_gearbox = "Manuální"
     st.session_state.parsed_equipment = "Zatím neuloženo – vlož inzerát a klikni na tlačítko výše."
 
-def call_groq(prompt_text, max_tokens=3000):
+def call_groq(prompt_text, max_tokens=1500):
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     payload = {
         "model": "openai/gpt-oss-20b",
@@ -44,10 +45,10 @@ if st.button("✨ Načíst data z textu inzerátu"):
     elif not ad_text_input.strip():
         st.warning("Vlož nejdřív text inzerátu.")
     else:
-        with st.spinner("AI podrobně analyzuje inzerát a vytahuje kompletní výbavu..."):
+        with st.spinner("AI vytahuje parametry a výbavu..."):
             try:
                 clean_ad = ad_text_input.replace('"', "'").replace('\n', ' ').replace('\r', ' ')
-                p_text = f"""Jsi špičkový analytik automobilových inzerátů. Z následujícího textu inzerátu vyextrahuj parametry a sestav detailní přehled výbavy v JSON formátu:
+                p_text = f"""Vyextrahuj z textu inzerátu parametry a výbavu do JSON formátu:
 {{
     "model": "značka a model",
     "year": 2020,
@@ -55,11 +56,11 @@ if st.button("✨ Načíst data z textu inzerátu"):
     "price": 0,
     "fuel": "Benzín",
     "gearbox": "Manuální",
-    "equipment_summary": "Detailní výbava rozdělená do kategorií"
+    "equipment_summary": "stručný přehled výbavy"
 }}
 Text: "{clean_ad}"
 """
-                res = call_groq(p_text, 2500)
+                res = call_groq(p_text, 1000)
                 res = re.sub(r'^```json\s*', '', res, flags=re.IGNORECASE)
                 res = re.sub(r'^```\s*', '', res, flags=re.IGNORECASE)
                 res = re.sub(r'\s*```$', '', res)
@@ -85,7 +86,7 @@ Text: "{clean_ad}"
                 st.success("Data úspěšně načtena!")
             except Exception as e:
                 st.session_state.parsed_equipment = ad_text_input
-                st.warning(f"Pozor: Parsování inzerátu narazilo na problém ({e}), text byl zálohován.")
+                st.warning(f"Pozor: Parsování narazilo na limit nebo problém ({e}), text byl zálohován.")
 
 st.markdown("---")
 
@@ -116,8 +117,11 @@ if submitted:
     elif not model.strip():
         st.warning("Zadej značku a model vozidla.")
     else:
-        with st.spinner("Prohledávám český trh a porovnávam výbavu, motorizaci a nájezd s reálnými inzeráty..."):
+        with st.spinner("Prohledávám český trh a generuji posudek..."):
             try:
+                # Malá pauza, aby se předešlo rate limitu (TPM)
+                time.sleep(2)
+                
                 search_query = f"{model} {year} cena ojetiny bazar"
                 search_url = f"[https://html.duckduckgo.com/html/?q=](https://html.duckduckgo.com/html/?q=){requests.utils.quote(search_query)}"
                 headers_ddg = {"User-Agent": "Mozilla/5.0"}
@@ -129,63 +133,60 @@ if submitted:
                         from bs4 import BeautifulSoup
                         soup = BeautifulSoup(resp_ddg.text, 'html.parser')
                         results = []
-                        for a in soup.find_all('a', class_='result__snippet', limit=5):
+                        for a in soup.find_all('a', class_='result__snippet', limit=4):
                             results.append(a.get_text())
                         web_snippets = " ".join(results)
                 except Exception:
-                    web_snippets = "Tržní data z webu se nepodařilo načíst."
+                    web_snippets = "Tržní data z webu nedostupná."
 
                 clean_full_ad = ad_text_input.replace('"', "'").replace('\n', ' ') if ad_text_input else "Neuveden"
                 extracted_equipment_desc = st.session_state.parsed_equipment
                 
-                main_prompt = f"""Jsi špičkový český automobilový expert a soudní znalec pro motorová vozidla. Proveď hloubkový technický a tržní audit ojetého vozu pro český trh.
+                main_prompt = f"""Jsi český automobilový expert. Proveď audit ojetého vozu pro český trh.
 
-Parametry hodnoceného vozu:
+Parametry vozu:
 - Model: {model}
-- Rok výroby: {year}
+- Rok: {year}
 - Nájezd: {km} km
-- Požadovaná inzerovaná cena: {price} Kč
-- Palivo: {fuel}
-- Převodovka: {gearbox}
-- Detailní výbava vozu: {extracted_equipment_desc}
-- Původní text inzerátu: {clean_full_ad}
+- Cena: {price} Kč
+- Palivo: {fuel} | Převodovka: {gearbox}
+- Výbava: {extracted_equipment_desc}
 
-Reálné cenové stopy z českého internetu:
+Tržní stopy z webu:
 {web_snippets}
 
-Klíčové instrukce pro férové nacenění:
-1. Porovnávej jablka s jablky! Zohledni konkrétní výbavu (výbavový stupeň, asistenční systémy, interiér, kola atd.) uvedenou výše. Auto s bohatou výbavou má vyšší tržní hodnotu než ořezaná verze.
-2. Porovnej inzerovanou cenu s reálnými nabídkami shodně vybavených vozů na českém trhu.
-3. Nastav odpovídající rozpětí férové ceny (`fair_price_min` a `fair_price_max`) podle této výbavy a stavu.
+Instrukce:
+1. Zohledni konkrétní výbavu a porovnej cenu s reálným trhem.
+2. Nastav férovou cenu (`fair_price_min` a `fair_price_max`).
 
-Odpověz PŘESNĚ v tomto formátu JSON (nezapomeň uzavírat řetězce uvozovkami):
+Odpověz PŘESNĚ v tomto JSON formátu:
 {{
-    "verdict": "Zvol buď 🟢 KUPUJ / FÉROVÁ NABÍDKA, 🟡 ZVÁŽIT / JEDNAT O CENU, nebo 🔴 RUCE PRYČ / PŘEDRAŽENO",
-    "verdict_summary": "Stručné shrnutí stavu a nabídky v jedné větě.",
+    "verdict": "🟢 KUPUJ / FÉROVÁ NABÍDKA nebo 🟡 ZVÁŽIT / JEDNAT O CENU nebo 🔴 RUCE PRYČ / PŘEDRAŽENO",
+    "verdict_summary": "Shrnutí v jedné větě.",
     "fair_price_min": 400000,
     "fair_price_max": 450000,
-    "price_evaluation": "Podrobné zhodnocení ceny s ohledem na konkrétní výbavu, nájezd a srovnání s reálnými konkurenty na trhu.",
-    "engine_gearbox_analysis": "Odborný rozbor motoru a převodovky.",
+    "price_evaluation": "Zhodnocení ceny s ohledem na výbavu a trh.",
+    "engine_gearbox_analysis": "Rozbor motoru a převodovky.",
     "common_failures": [
-        "První typická slabina motoru či vozu",
-        "Druhá typická slabina",
-        "Třetí typická slabina"
+        "Slabina 1",
+        "Slabina 2",
+        "Slabina 3"
     ],
-    "servicing_cost_2years": "Odhad nákladů na servis na 2 roky s částkou v Kč.",
+    "servicing_cost_2years": "Odhad servisních nákladů na 2 roky.",
     "inspection_checklist": [
-        "První věc k zkontrolování na prohlídce",
-        "Druhá věc k zkontrolování",
-        "Třetí věc k zkontrolování"
+        "Kontrola 1",
+        "Kontrola 2",
+        "Kontrola 3"
     ],
-    "recommendation": "Závěrečné doporučení a taktika vyjednávání o slevě."
+    "recommendation": "Doporučení a taktika slevy."
 }}"""
 
-                res = call_groq(main_prompt, 4000)
+                res = call_groq(main_prompt, 2000)
                 res = re.sub(r'^```json\s*', '', res, flags=re.IGNORECASE)
                 res = re.sub(r'^```\s*', '', res, flags=re.IGNORECASE)
                 res = re.sub(r'\s*```$', '', res)
                 
-                match_main = re.search(r'\{.*\}', res, res.DOTALL if 'DOTALL' in dir(re) else 16)
+                match_main = re.search(r'\{.*\}', res, re.DOTALL)
                 if match_main:
                     data = json.loads(match_main.group(0))
                 else:
