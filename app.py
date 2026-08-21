@@ -28,40 +28,29 @@ if "form_model" not in st.session_state:
     st.session_state.parsed_equipment = []
     st.session_state.raw_ad_loaded = False
 
-def call_groq_json(prompt_text, max_tokens=1500):
-    clean_api_key = str(api_key).strip().strip("'").strip('"')
-    url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {clean_api_key}", "Content-Type": "application/json"}
-    payload = {
-        "model": "openai/gpt-oss-20b",
-        "messages": [
-            {"role": "system", "content": "Jsi přísný JSON extraktor. Vrať POUZE a JENOM validní JSON, bez jakéhokoliv dalšího textu, úvodu nebo závěru. Žádné markdown obálky typu ```json."},
-            {"role": "user", "content": prompt_text}
-        ],
-        "temperature": 0.0,
-        "max_tokens": max_tokens
-    }
-    time.sleep(1)
-    response = requests.post(url, headers=headers, json=payload, timeout=60)
-    if response.status_code != 200:
-        raise Exception(f"API Error {response.status_code}: {response.text}")
-    return response.json()["choices"][0]["message"]["content"].strip()
-
-def call_groq_text(prompt_text, max_tokens=2500):
+def call_groq_api(prompt_text, system_prompt="", max_tokens=2000, temperature=0.1):
     clean_api_key = str(api_key).strip().strip("'").strip('"')
     url = "[https://api.groq.com/openai/v1/chat/completions](https://api.groq.com/openai/v1/chat/completions)"
     headers = {"Authorization": f"Bearer {clean_api_key}", "Content-Type": "application/json"}
+    
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": prompt_text})
+    
     payload = {
-        "model": "openai/gpt-oss-20b",
-        "messages": [{"role": "user", "content": prompt_text}],
-        "temperature": 0.1,
+        "model": "llama-3.3-70b-versatile",
+        "messages": messages,
+        "temperature": temperature,
         "max_tokens": max_tokens
     }
-    time.sleep(1)
+    time.sleep(0.5)
     response = requests.post(url, headers=headers, json=payload, timeout=60)
     if response.status_code != 200:
         raise Exception(f"API Error {response.status_code}: {response.text}")
-    return response.json()["choices"][0]["message"]["content"].strip()
+    
+    res_json = response.json()
+    return res_json["choices"][0]["message"]["content"].strip()
 
 if st.button("✨ Načíst data z textu inzerátu"):
     if not api_key:
@@ -72,7 +61,8 @@ if st.button("✨ Načíst data z textu inzerátu"):
         with st.spinner("AI parsuje parametry a výbavu..."):
             try:
                 clean_ad = ad_text_input.replace('"', "'").replace('\n', ' ').replace('\r', ' ')
-                p_text = f"""Z následujícího textu inzerátu vyextrahuj informace a vrať PŘESNĚ tento JSON formát (nic jiného):
+                sys_prompt = "Jsi precizní JSON extraktor. Vždy vrať čistý JSON bez jakéhokoliv dalšího textu, úvodu či závěru."
+                p_text = f"""Z následujícího textu inzerátu vyextrahuj informace a vrať PŘESNĚ v tomto JSON formátu:
 {{
   "model": "Značka a model",
   "rok": 2020,
@@ -87,18 +77,19 @@ if st.button("✨ Načíst data z textu inzerátu"):
 }}
 
 Pravidla:
-- Palivo: "Benzín", "Nafta", "Hybrid" nebo "Elektro"
-- Převodovka: "Manuální" nebo "Automatická"
-- Vybava: Pole objektů rozdělené do kategorií (např. Bezpečnost, Komfort, Asistenti, Exteriér, Interiér).
+- Palivo: přesně "Benzín", "Nafta", "Hybrid" nebo "Elektro"
+- Převodovka: přesně "Manuální" nebo "Automatická"
+- Vybava: Pole objektů rozdělené do kategorií. Pokud v textu výbava není, vrať prázdné pole [].
 
 Text inzerátu: "{clean_ad}"
 """
-                res = call_groq_json(p_text, 1500)
+                res = call_groq_api(p_text, system_prompt=sys_prompt, max_tokens=1500, temperature=0.0)
                 
+                # Očištění výstupu od případných markdown bloků ```json ... ```
                 res_clean = re.sub(r'^```(?:json)?\s*', '', res, flags=re.IGNORECASE)
-                res_clean = re.sub(r'\s*```$', '', res_clean)
+                res_clean = re.sub(r'\s*```$', '', res_clean).strip()
                 
-                data = json.loads(res_clean.strip())
+                data = json.loads(res_clean)
                 
                 st.session_state.form_model = data.get("model", "")
                 st.session_state.form_year = int(data.get("rok", 2020))
@@ -228,7 +219,7 @@ Použij tuto přesnou strukturu nadpisů:
 [Doporučení k diagnostice, tipy na smlouvání]
 """
 
-                analysis_result = call_groq_text(main_prompt, 2500)
+                analysis_result = call_groq_api(main_prompt, max_tokens=2500, temperature=0.1)
                 st.markdown("---")
                 st.markdown(analysis_result)
                 
