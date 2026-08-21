@@ -6,7 +6,7 @@ import re
 st.set_page_config(page_title="AutoCheck CZ", page_icon="🚗", layout="wide")
 
 st.title("🚗 AutoCheck CZ – Expertní analýza ojetiny")
-st.subheader("Hloubkový technický posudek, skrytá rizika a nákupní verdikt")
+st.subheader("Hloubkový technický posudek, reálná tržní data a nákupní verdikt")
 
 default_key = st.secrets.get("GROQ_API_KEY", "")
 
@@ -116,31 +116,55 @@ if submitted:
     elif not model.strip():
         st.warning("Zadej značku a model vozidla.")
     else:
-        with st.spinner("Špičkový mechanik prověřuje reálný stav trhu, skryté vady a servisní historii..."):
+        with st.spinner("Prohledávám český trh a porovnávam výbavu, motorizaci a nájezd s reálnými inzeráty..."):
             try:
-                clean_full_ad = ad_text_input.replace('"', "'").replace('\n', ' ') if ad_text_input else "Neuveden"
+                search_query = f"{model} {year} cena ojetiny bazar"
+                search_url = f"[https://html.duckduckgo.com/html/?q=](https://html.duckduckgo.com/html/?q=){requests.utils.quote(search_query)}"
+                headers_ddg = {"User-Agent": "Mozilla/5.0"}
+                web_snippets = ""
                 
-                main_prompt = f"""Jsi špičkový český automobilový expert a soudní znalec pro motorová vozidla. Proveď hloubkový technický audit ojetého vozu pro český trh.
+                try:
+                    resp_ddg = requests.get(search_url, headers=headers_ddg, timeout=10)
+                    if resp_ddg.status_code == 200:
+                        from bs4 import BeautifulSoup
+                        soup = BeautifulSoup(resp_ddg.text, 'html.parser')
+                        results = []
+                        for a in soup.find_all('a', class_='result__snippet', limit=5):
+                            results.append(a.get_text())
+                        web_snippets = " ".join(results)
+                except Exception:
+                    web_snippets = "Tržní data z webu se nepodařilo načíst."
 
-Parametry vozu:
+                clean_full_ad = ad_text_input.replace('"', "'").replace('\n', ' ') if ad_text_input else "Neuveden"
+                extracted_equipment_desc = st.session_state.parsed_equipment
+                
+                main_prompt = f"""Jsi špičkový český automobilový expert a soudní znalec pro motorová vozidla. Proveď hloubkový technický a tržní audit ojetého vozu pro český trh.
+
+Parametry hodnoceného vozu:
 - Model: {model}
 - Rok výroby: {year}
 - Nájezd: {km} km
 - Požadovaná inzerovaná cena: {price} Kč
 - Palivo: {fuel}
 - Převodovka: {gearbox}
-- Výbava/Inzerát: {clean_full_ad}
+- Detailní výbava vozu: {extracted_equipment_desc}
+- Původní text inzerátu: {clean_full_ad}
 
-Důležité pravidlo pro konzistenci: Nejdříve reálně porovnej inzerovanou cenu ({price} Kč) s férovou tržní hodnotou. 
-- Pokud je inzerovaná cena výrazně nad trhem, verdikt MUSÍ být "🔴 RUCE PRYČ / PŘEDRAŽENO" nebo "🟡 ZVÁŽIT / JEDNAT O CENU". Zelený verdikt "🟢 KUPUJ / VÝBORNÁ NABÍDKA" použij POUZE tehdy, když je cena férová nebo výhodná.
+Reálné cenové stopy z českého internetu:
+{web_snippets}
+
+Klíčové instrukce pro férové nacenění:
+1. Porovnávej jablka s jablky! Zohledni konkrétní výbavu (výbavový stupeň, asistenční systémy, interiér, kola atd.) uvedenou výše. Auto s bohatou výbavou má vyšší tržní hodnotu než ořezaná verze.
+2. Porovnej inzerovanou cenu s reálnými nabídkami shodně vybavených vozů na českém trhu.
+3. Nastav odpovídající rozpětí férové ceny (`fair_price_min` a `fair_price_max`) podle této výbavy a stavu.
 
 Odpověz PŘESNĚ v tomto formátu JSON (nezapomeň uzavírat řetězce uvozovkami):
 {{
-    "verdict": "Zvol buď 🟢 KUPUJ / VÝBORNÁ NABÍDKA, 🟡 ZVÁŽIT / JEDNAT O CENU, nebo 🔴 RUCE PRYČ / PŘEDRAŽENO",
+    "verdict": "Zvol buď 🟢 KUPUJ / FÉROVÁ NABÍDKA, 🟡 ZVÁŽIT / JEDNAT O CENU, nebo 🔴 RUCE PRYČ / PŘEDRAŽENO",
     "verdict_summary": "Stručné shrnutí stavu a nabídky v jedné větě.",
-    "fair_price_min": 100000,
-    "fair_price_max": 150000,
-    "price_evaluation": "Zhodnocení ceny vzhledem k trhu a porovnání s požadovanou cenou.",
+    "fair_price_min": 400000,
+    "fair_price_max": 450000,
+    "price_evaluation": "Podrobné zhodnocení ceny s ohledem na konkrétní výbavu, nájezd a srovnání s reálnými konkurenty na trhu.",
     "engine_gearbox_analysis": "Odborný rozbor motoru a převodovky.",
     "common_failures": [
         "První typická slabina motoru či vozu",
@@ -161,7 +185,7 @@ Odpověz PŘESNĚ v tomto formátu JSON (nezapomeň uzavírat řetězce uvozovka
                 res = re.sub(r'^```\s*', '', res, flags=re.IGNORECASE)
                 res = re.sub(r'\s*```$', '', res)
                 
-                match_main = re.search(r'\{.*\}', res, re.DOTALL)
+                match_main = re.search(r'\{.*\}', res, res.DOTALL if 'DOTALL' in dir(re) else 16)
                 if match_main:
                     data = json.loads(match_main.group(0))
                 else:
