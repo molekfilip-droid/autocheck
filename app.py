@@ -107,19 +107,4 @@ f_idx = f_opts.index(st.session_state.form_fuel) if st.session_state.form_fuel i
 fuel = st.selectbox("Palivo", f_opts, index=f_idx)
 
 g_opts = ["Manuální", "Automatická"]
-g_idx = g_opts.index(st.session_state.form_gearbox) if st.session_state.form_gearbox in g_opts else 0
-gearbox = st.selectbox("Převodovka", g_opts, index=g_idx)
-
-submitted = st.button("🚀 Spustit hloubkovou expertní analýzu", type="primary")
-
-if submitted:
-    if not api_key:
-        st.error("Chybí Groq API klíč.")
-    elif not model.strip():
-        st.warning("Zadej značku a model vozidla.")
-    else:
-        with st.spinner("Špičkový mechanik prověřuje techniku, reálnou výbavu a trh..."):
-            try:
-                clean_full_ad = ad_text_input.replace('"', "'").replace('\n', ' ')[:4000] if ad_text_input else "Neuveden"
-                
-                main_prompt = f"""Jsi přední český automobilový expert, mechanik a soudní znalec s 25 lety praxe. Proveď precizní, technicky bez
+g_idx = g_opts.index(st.
