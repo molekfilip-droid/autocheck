@@ -44,26 +44,28 @@ if st.button("✨ Načíst data z textu inzerátu"):
     elif not ad_text_input.strip():
         st.warning("Vlož nejdřív text inzerátu.")
     else:
-        with st.spinner("AI parsuje inzerát a detekuje výbavu..."):
+        with st.spinner("AI podrobně analyzuje inzerát a vytahuje kompletní výbavu..."):
             try:
-                # Ošetření textu, aby se předešlo rozbití JSONu
                 clean_ad = ad_text_input.replace('"', "'").replace('\n', ' ').replace('\r', ' ')
                 
-                p_text = f"""Jsi parser inzerátů. Z následujícího textu vrať POUZE validní JSON. Žádný markdown, žádný text kolem. Vše v češtině!
+                # VYLEPŠENÝ PARSOVACÍ PROMPT PRO MAXIMÁLNÍ DETAIL VÝBAVY
+                p_text = f"""Jsi špičkový analytik automobilových inzerátů. Tvým úkolem je vytáhnout z textu inzerátu absolutně všechny detaily. 
+Nesmíš vynechat žádnou zmínku o výbavě, paketech, kolech, asistentech, typu interiéru nebo technických datech.
+
 Text inzerátu: "{clean_ad}"
 
-Struktura JSON:
+Vrať POUZE validní JSON ve formátu (žádný markdown, žádný text okolo):
 {{
-    "model": "značka a model",
+    "model": "přesná značka, model a případně motorizace",
     "year": 2020,
     "km": 0,
     "price": 0,
     "fuel": "Benzín",
     "gearbox": "Manuální",
-    "equipment_summary": "Stručný přehled výbavy"
+    "equipment_summary": "Extrémně detailní a vyčerpávající seznam výbavy rozepsaný do kategorií (např. Bezpečnost a asistenti, Komfort a interiéry, Exteriér a světla, Infotainment, Kola/podvozek atd.) tak, jak to zaznělo v inzerátu, nic nevynechej!"
 }}"""
-                # Zvýšené tokeny pro bezpečné dokončení odpovědi
-                res = call_groq(p_text, 1500)
+                
+                res = call_groq(p_text, 2500)
                 
                 res = re.sub(r'^```json\s*', '', res, flags=re.IGNORECASE)
                 res = re.sub(r'^```\s*', '', res, flags=re.IGNORECASE)
@@ -86,13 +88,13 @@ Struktura JSON:
                 st.session_state.form_gearbox = g_val if g_val in ["Manuální", "Automatická"] else "Manuální"
                 
                 st.session_state.parsed_equipment = str(data.get("equipment_summary", "Bez popisu výbavy."))
-                st.success("Údaje a výbava úspěšně načteny!")
+                st.success("Kompletní data a detailní výbava úspěšně načteny!")
             except Exception as e:
                 st.error(f"Chyba při parsování: {e}. Zkus text inzerátu vložit znovu nebo upravit.")
 
 st.markdown("---")
 
-with st.expander("🔍 Zkontrolovat načtenou výbavu", expanded=True):
+with st.expander("🔍 Zkontrolovat načtenou výbavu (Detailní přehled)", expanded=True):
     st.info(st.session_state.parsed_equipment)
 
 with st.form("car_form"):
