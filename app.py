@@ -1,9 +1,7 @@
 import streamlit as st
 import requests
-import json
 import re
 import time
-import pandas as pd
 
 st.set_page_config(page_title="AutoCheck CZ", page_icon="🚗", layout="wide")
 
@@ -13,7 +11,7 @@ st.subheader("Hloubkový technický posudek, reálná tržní data a nákupní v
 default_key = st.secrets.get("GROQ_API_KEY", "")
 
 st.sidebar.markdown("### Nastavení")
-user_api_key = st.sidebar.text_input("Groq API Key", value=default_key, type="password").strip()
+api_key = st.sidebar.text_input("Groq API Key", value=default_key, type="password").strip()
 
 st.markdown("### 📋 Automatické vyplnění z inzerátu")
 ad_text_input = st.text_area("Zkopíruj text inzerátu (popis, výbavu, parametry)...", placeholder="Sem vlož inzerát z Bazoše, Sauta apod...")
@@ -25,137 +23,68 @@ if "form_model" not in st.session_state:
     st.session_state.form_price = 0
     st.session_state.form_fuel = "Benzín"
     st.session_state.form_gearbox = "Manuální"
-    st.session_state.parsed_equipment = []
-    st.session_state.raw_ad_loaded = False
+    st.session_state.parsed_equipment = "Zatím neuloženo – vlož inzerát a klikni na tlačítko výše."
 
-def call_groq(prompt_text, system_prompt="", max_tokens=2000, temperature=0.1):
-    active_key = str(user_api_key).strip().strip("'").strip('"')
-    if not active_key:
-        raise Exception("Chybí Groq API klíč.")
-        
-    api_url = "https://api.groq.com/openai/v1/chat/completions"
-    
-    headers = {
-        "Authorization": f"Bearer {active_key}", 
-        "Content-Type": "application/json"
-    }
-    
-    messages = []
-    if system_prompt:
-        messages.append({"role": "system", "content": system_prompt})
-    messages.append({"role": "user", "content": prompt_text})
-    
+def call_groq(prompt_text, max_tokens=2500):
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     payload = {
-        "model": "llama-3.3-70b-versatile",
-        "messages": messages,
-        "temperature": temperature,
+        "model": "openai/gpt-oss-20b",
+        "messages": [{"role": "user", "content": prompt_text}],
+        "temperature": 0.2,
         "max_tokens": max_tokens
     }
     
-    time.sleep(0.5)
+    time.sleep(2)
     
-    response = requests.post(
-        url=api_url, 
-        headers=headers, 
-        json=payload, 
-        timeout=60
-    )
-    
+    response = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=60)
     if response.status_code != 200:
         raise Exception(f"API Error {response.status_code}: {response.text}")
-        
     return response.json()["choices"][0]["message"]["content"].strip()
 
 if st.button("✨ Načíst data z textu inzerátu"):
-    if not user_api_key:
+    if not api_key:
         st.error("Chybí Groq API klíč v secrets nebo v sidebaru.")
     elif not ad_text_input.strip():
         st.warning("Vlož nejdřív text inzerátu.")
     else:
-        with st.spinner("AI parsuje parametry a výbavu..."):
+        with st.spinner("AI vytahuje parametry a výbavu v češtině..."):
             try:
                 clean_ad = ad_text_input.replace('"', "'").replace('\n', ' ').replace('\r', ' ')
-                sys_prompt = "Jsi precizní JSON extraktor. Vždy vrať čistý JSON bez jakéhokoliv dalšího textu, úvodu či závěru."
-                p_text = f"""Z následujícího textu inzerátu vyextrahuj informace a vrať PŘESNĚ v tomto JSON formátu:
-{{
-  "model": "Značka a model",
-  "rok": 2020,
-  "km": 150000,
-  "cena": 300000,
-  "palivo": "Benzín",
-  "prevodovka": "Manuální",
-  "vybava": [
-    {{"kategorie": "Bezpečnost", "prvek": "ABS"}},
-    {{"kategorie": "Komfort", "prvek": "Vyhřívaná sedadla"}}
-  ]
-}}
-
-Pravidla:
-- Palivo: přesně "Benzín", "Nafta", "Hybrid" nebo "Elektro"
-- Převodovka: přesně "Manuální" nebo "Automatická"
-- Vybava: Pole objektů rozdělené do kategorií. Pokud v textu výbava není, vrať prázdné pole [].
-
+                p_text = f"""Z následujícího inzerátu vyextrahuj parametry a vrať PŘESNĚ v tomto formátu odděleném středníky (žádný jiný text):
+model|rok|km|cena|palivo|prevodovka|vybava
+Například: Škoda Octavia|2019|150000|350000|Nafta|Manuální|Vyhřívané sedačky, navigace
 Text inzerátu: "{clean_ad}"
 """
-                res = call_groq(p_text, system_prompt=sys_prompt, max_tokens=1500, temperature=0.0)
-                
-                res_clean = re.sub(r'^```(?:json)?\s*', '', res, flags=re.IGNORECASE)
-                res_clean = re.sub(r'\s*```$', '', res_clean).strip()
-                
-                data = json.loads(res_clean)
-                
-                st.session_state.form_model = data.get("model", "")
-                st.session_state.form_year = int(data.get("rok", 2020))
-                st.session_state.form_km = int(data.get("km", 0))
-                st.session_state.form_price = int(data.get("cena", 0))
-                
-                f_val = data.get("palivo", "Benzín")
-                st.session_state.form_fuel = f_val if f_val in ["Benzín", "Nafta", "Hybrid", "Elektro"] else "Benzín"
-                
-                g_val = data.get("prevodovka", "Manuální")
-                st.session_state.form_gearbox = g_val if g_val in ["Manuální", "Automatická"] else "Manuální"
-                
-                st.session_state.parsed_equipment = data.get("vybava", [])
-                st.session_state.raw_ad_loaded = True
-                
-                st.success("Data a výbava úspěšně načteny!")
+                res = call_groq(p_text, 200)
+                parts = res.split('|')
+                if len(parts) >= 6:
+                    st.session_state.form_model = parts[0].strip()
+                    st.session_state.form_year = int(re.sub(r'\D', '', parts[1]) or 2020)
+                    st.session_state.form_km = int(re.sub(r'\D', '', parts[2]) or 0)
+                    st.session_state.form_price = int(re.sub(r'\D', '', parts[3]) or 0)
+                    
+                    f_val = parts[4].strip()
+                    st.session_state.form_fuel = f_val if f_val in ["Benzín", "Nafta", "Hybrid", "Elektro"] else "Benzín"
+                    
+                    g_val = parts[5].strip()
+                    st.session_state.form_gearbox = g_val if g_val in ["Manuální", "Automatická"] else "Manuální"
+                    
+                    if len(parts) > 6:
+                        st.session_state.parsed_equipment = parts[6].strip()
+                    st.success("Data úspěšně načtena!")
+                else:
+                    raise Exception("Nepodařilo se správně parsovat odpovídající řetězec.")
             except Exception as e:
-                st.session_state.parsed_equipment = [{"kategorie": "Celý text", "prvek": ad_text_input}]
-                st.session_state.raw_ad_loaded = False
-                st.warning(f"Pozor: Automatické parsování selhalo ({e}), text je k dispozici níže.")
+                st.session_state.parsed_equipment = ad_text_input
+                st.warning(f"Pozor: Automatické vyplnění selhalo ({e}), text inzerátu byl uložen do výbavy.")
 
 st.markdown("---")
 
-st.markdown("### 🔍 Přehled načtené výbavy a parametrů z inzerátu")
-eq_list = st.session_state.parsed_equipment
-
-if isinstance(eq_list, list) and len(eq_list) > 0 and isinstance(eq_list[0], dict) and st.session_state.raw_ad_loaded:
-    col_t1, col_t2 = st.columns(2)
-    
-    with col_t1:
-        st.markdown("#### 🚗 Základní parametry")
-        df_params = pd.DataFrame([
-            {"Parametr": "Model", "Hodnota": st.session_state.form_model},
-            {"Parametr": "Rok výroby", "Hodnota": st.session_state.form_year},
-            {"Parametr": "Nájezd", "Hodnota": f"{st.session_state.form_km:,} km"},
-            {"Parametr": "Cena", "Hodnota": f"{st.session_state.form_price:,} Kč"},
-            {"Parametr": "Palivo", "Hodnota": st.session_state.form_fuel},
-            {"Parametr": "Převodovka", "Hodnota": st.session_state.form_gearbox}
-        ])
-        st.dataframe(df_params, use_container_width=True, hide_index=True)
-        
-    with col_t2:
-        st.markdown("#### 🛡️ Extrahovaná výbava")
-        df_eq = pd.DataFrame(eq_list)
-        df_eq.columns = ["Kategorie", "Prvek výbavy"]
-        st.dataframe(df_eq, use_container_width=True, hide_index=True)
-else:
-    st.info("Zatím nebyl načten žádný inzerát. Vlož text nahoře a klikni na tlačítko.")
-
-st.markdown("---")
+with st.expander("🔍 Zkontrolovat načtenou výbavu (Detailní přehled)", expanded=True):
+    st.info(st.session_state.parsed_equipment)
 
 with st.form("car_form"):
-    st.markdown("### ⚙️ Úprava parametrů před analýzou")
+    st.markdown("### 🚗 Parametry vozidla")
     c1, c2 = st.columns(2)
     model = c1.text_input("Značka a model", value=st.session_state.form_model)
     year = c2.number_input("Rok výroby", min_value=1990, max_value=2026, value=st.session_state.form_year)
@@ -173,7 +102,7 @@ with st.form("car_form"):
     submitted = st.form_submit_button("🚀 Spustit hloubkovou expertní analýzu")
 
 if submitted:
-    if not user_api_key:
+    if not api_key:
         st.error("Chybí Groq API klíč.")
     elif not model.strip():
         st.warning("Zadej značku a model vozidla.")
@@ -194,9 +123,9 @@ if submitted:
                 except Exception:
                     web_snippets = "Tržní data nedostupná."
 
-                eq_text = ", ".join([f"{x.get('kategorie')}: {x.get('prvek')}" for x in st.session_state.parsed_equipment if isinstance(x, dict)])
+                extracted_equipment_desc = st.session_state.parsed_equipment
                 
-                main_prompt = f"""Jsi špičkový český automobilový expert na ojetá auta. Napiš PODROBNÝ, VYČERPÁVAJÍCÍ a KOMPLETNÍ expertní posudek v češtině.
+                main_prompt = f"""Jsi špičkový český automobilový expert na ojetá auta. Napiš PODROBNÝ, VYČERPÁVAJÍCÍ a KOMPLETNÍ expertní posudek v češtině. Nepochybně vypiš všechny sekce detailně, nic nezkracuj.
 
 Hodnocené vozidlo:
 - Model: {model}
@@ -204,35 +133,37 @@ Hodnocené vozidlo:
 - Nájezd: {km} km
 - Inzerovaná cena: {price} Kč
 - Palivo: {fuel} | Převodovka: {gearbox}
-- Výbava: {eq_text}
+- Výbava: {extracted_equipment_desc}
 - Tržní kontext: {web_snippets}
 
-Použij tuto přesnou strukturu nadpisů:
+Použij tuto přesnou strukturu nadpisů a rozveď každou sekci:
 
 ## VERDIKT: [Zvol jedno: KUPUJ / FÉROVÁ NABÍDKA nebo ZVÁŽIT / JEDNAT O CENU nebo RUCE PRYČ / PŘEDRAŽENO]
 **Shrnutí:** [Podrobné shrnutí v 1-2 větách]
 
 ### 💰 Tržní hodnocení ceny a férové rozpětí
-[Rozbor ceny, férové rozpětí v Kč, servisní náklady na 2 roky]
+[Napiš detailní rozbor ceny, uveď konkrétní tržní rozpětí férové ceny v Kč a odhadni servisní náklady na následující 2 roky]
 
 ### ⚙️ Technický stav: Motor a převodovka
-[Spolehlivost motoru, chování převodovky, specifická rizika]
+[Podrobný rozbor konkrétní motorizace, její spolehlivosti, chování převodovky (DSG/manuál) a na co si dát u tohoto pohonu pozor]
 
 ### ⚠️ Typické slabiny a rizika
-* [Slabina 1]
-* [Slabina 2]
-* [Slabina 3]
+* [Slabina 1 a jak se projevuje]
+* [Slabina 2 a jak se projevuje]
+* [Slabina 3 a jak se projevuje]
 
 ### 🔍 Inspekční checklist při prohlídce
-* [Bod kontroly 1]
-* [Bod kontroly 2]
-* [Bod kontroly 3]
+* [Konkrétní bod kontroly 1]
+* [Konkrétní bod kontroly 2]
+* [Konkrétní bod kontroly 3]
+* [Konkrétní bod kontroly 4]
 
 ### 🏁 Doporučení a nákupní taktika
-[Doporučení k diagnostice, tipy na smlouvání]
+[Detailní závěrečné doporučení, zda auto jet projet na diagnostiku, jak smlouvat a jaké argumenty použít]
 """
 
-                analysis_result = call_groq(main_prompt, max_tokens=2500, temperature=0.1)
+                analysis_result = call_groq(main_prompt, 2500)
+                
                 st.markdown("---")
                 st.markdown(analysis_result)
                 
