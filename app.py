@@ -22,11 +22,12 @@ api_key = st.sidebar.text_input(
 st.markdown("### 📋 Automatické vyplnění z inzerátu")
 ad_text_input = st.text_area("Zkopíruj text inzerátu (popis, výbavu, parametry)...", placeholder="Sem vlož inzerát z Bazoše, Sauta apod...")
 
+# Inicializace session state s prázdnými hodnotami
 if "form_model" not in st.session_state:
-    st.session_state.form_model = "Škoda Octavia 1.5 TSI"
-    st.session_state.form_year = 2021
-    st.session_state.form_km = 118000
-    st.session_state.form_price = 399000
+    st.session_state.form_model = ""
+    st.session_state.form_year = 2020
+    st.session_state.form_km = 0
+    st.session_state.form_price = 0
     st.session_state.form_fuel = "Benzín"
     st.session_state.form_gearbox = "Manuální"
 
@@ -94,11 +95,11 @@ st.markdown("---")
 with st.form("car_form"):
     st.markdown("### 🚗 Parametry vozidla")
     col1, col2 = st.columns(2)
-    model = col1.text_input("Značka a model", value=st.session_state.form_model)
+    model = col1.text_input("Značka a model", value=st.session_state.form_model, placeholder="např. Škoda Octavia 1.5 TSI")
     year = col2.number_input("Rok výroby", min_value=1990, max_value=2026, value=st.session_state.form_year)
     
-    km = col1.number_input("Nájezd (km)", min_value=0, value=st.session_state.form_km)
-    price = col2.number_input("Cena (Kč)", min_value=0, value=st.session_state.form_price)
+    km = col1.number_input("Nájezd (km)", min_value=0, value=st.session_state.form_km, step=1000)
+    price = col2.number_input("Cena (Kč)", min_value=0, value=st.session_state.form_price, step=10000)
     
     fuel_options = ["Benzín", "Nafta", "Hybrid", "Elektro"]
     default_fuel_idx = fuel_options.index(st.session_state.form_fuel) if st.session_state.form_fuel in fuel_options else 0
@@ -113,88 +114,7 @@ with st.form("car_form"):
 if submitted:
     if not api_key:
         st.error("Chybí Groq API klíč.")
+    elif not model.strip():
+        st.warning("Prosím zadej značku a model vozidla (nebo jej načti z inzerátu).")
     else:
-        with st.spinner('Špičkový mechanik a auditor prověřuje motor, převodovku, trh a rizika...'):
-            try:
-                prompt = """
-                Jsi hlavní šéfmechanik, soudní znalec a expert na trh ojetých vozů v ČR s 25 lety praxe. 
-                Proveď maximálně detailní, nekompromisní a hloubkovou analýzu tohoto vozidla:
-                - Model: {model}
-                - Rok výroby: {year}
-                - Nájezd: {km} km
-                - Cena: {price} Kč
-                - Palivo: {fuel}
-                - Převodovka: {gearbox}
-
-                ABSOLUTNÍ PRAVIDLO: Celá odpověď včetně všech popisů, hodnocení a položek musí být psaná 100% plynulou češtinou. Žádná angličtina!
-
-                Vrať odpověď POUZE jako validní JSON objekt s touto přesnou strukturou (bez markdownu ```json):
-                {{
-                    "verdict": "🟢 KUPUJ / VÝBORNÁ NABÍDKA" nebo "🟡 ZVÁŽIT RIZIKA / MÍRNĚ PŘEDRAŽENO" nebo "🔴 RUCE PRYČ / VELKÉ RIZIKO",
-                    "verdict_summary": "1-2 věty ostrého shrnutí v češtině, proč tento verdikt",
-                    "fair_price_min": minimální férová trhová cena v Kč (číslo),
-                    "fair_price_max": maximální férová trhová cena v Kč (číslo),
-                    "price_evaluation": "Podrobný rozbor ceny v češtině vzhledem k aktuálnímu trhu v ČR, nájezdu a roku výroby",
-                    "engine_gearbox_analysis": "Detailní technický rozbor v češtině pro tento konkrétní model (typické slabiny, na co trpí, životnost rozvodů, vstřikovačů, turba nebo spojky/automatu)",
-                    "common_failures": [
-                        "Specifická závada/bolístka tohoto modelu 1 v češtině",
-                        "Specifická závada/bolístka tohoto modelu 2 v češtině",
-                        "Specifická závada/bolístka tohoto modelu 3 v češtině"
-                    ],
-                    "servicing_cost_2years": "Realistický odhad nutných investic a servisu na následující 2 roky v češtině (včetně rozpisů částek v Kč)",
-                    "inspection_checklist": [
-                        "Konkrétní věc k prověření na zvedáku nebo diagnostice 1 v češtině",
-                        "Konkrétní věc k prověření na zvedáku nebo diagnostice 2 v češtině",
-                        "Konkrétní věc k prověření na zvedáku nebo diagnostice 3 v češtině",
-                        "Konkrétní věc k prověření na zvedáku nebo diagnostice 4 v češtině"
-                    ],
-                    "recommendation": "Závěrečné doporučení v češtině, jak se k nákupu postavit, na co ukázat při smlouvání o ceně a zda auto brát či nebrat."
-                }}
-                """.format(
-                    model=model,
-                    year=year,
-                    km=km,
-                    price=price,
-                    fuel=fuel,
-                    gearbox=gearbox
-                )
-                
-                result_text = call_groq(prompt, max_tokens=2500)
-                if result_text.startswith("```json"):
-                    result_text = result_text[7:]
-                if result_text.endswith("```"):
-                    result_text = result_text[:-3]
-                    
-                data = json.loads(result_text.strip())
-                
-                # Vykreslení výsledků do přehledného UI
-                st.markdown("---")
-                st.header(f"Výsledek auditu: {data['verdict']}")
-                st.info(data['verdict_summary'])
-                
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    st.metric("Odhadovaná férová cena", f"{data['fair_price_min']:,} - {data['fair_price_max']:,} Kč".replace(",", " "))
-                with col_b:
-                    st.markdown("**🔧 Odhadovaný servis na 2 roky:**")
-                    st.success(data['servicing_cost_2years'])
-                
-                st.markdown("### 💰 Tržní hodnocení ceny")
-                st.write(data['price_evaluation'])
-                
-                st.markdown("### ⚙️ Technický stav: Motor a převodovka")
-                st.write(data['engine_gearbox_analysis'])
-                
-                st.markdown("### ⚠️ Typické slabiny a rizika tohoto modelu")
-                for failure in data['common_failures']:
-                    st.error(f"• {failure}")
-                    
-                st.markdown("### 🔍 Inspekční checklist (Na co se 100% podívat)")
-                for check in data['inspection_checklist']:
-                    st.warning(f"✓ {check}")
-                    
-                st.markdown("### 🏁 Závěrečný verdikt a doporučení")
-                st.success(data['recommendation'])
-                
-            except Exception as e:
-                st.error(f"Chyba při generování hloubkové analýzy: {e}")
+        with st.spinner('Špičkový mechanik a auditor prověřuje motor, převodovku, trh
