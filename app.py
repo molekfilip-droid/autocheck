@@ -29,13 +29,13 @@ if "form_model" not in st.session_state:
 def call_groq(prompt_text, max_tokens=2500):
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     payload = {
-        "model": "openai/gpt-oss-20b",
+        "model": "llama-3.3-70b-versatile",
         "messages": [{"role": "user", "content": prompt_text}],
         "temperature": 0.2,
         "max_tokens": max_tokens
     }
     
-    time.sleep(2)
+    time.sleep(1)
     
     response = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=60)
     if response.status_code != 200:
@@ -51,12 +51,12 @@ if st.button("✨ Načíst data z textu inzerátu"):
         with st.spinner("AI vytahuje parametry a výbavu v češtině..."):
             try:
                 clean_ad = ad_text_input.replace('"', "'").replace('\n', ' ').replace('\r', ' ')
-                p_text = f"""Z následujícího inzerátu vyextrahuj parametry a vrať PŘESNĚ v tomto formátu odděleném středníky (žádný jiný text):
+                p_text = f"""Z následujícího inzerátu vyextrahuj parametry a vrať PŘESNĚ v tomto formátu odděleném svislítkem (nic jiného nepiš):
 model|rok|km|cena|palivo|prevodovka|vybava
 Například: Škoda Octavia|2019|150000|350000|Nafta|Manuální|Vyhřívané sedačky, navigace
 Text inzerátu: "{clean_ad}"
 """
-                res = call_groq(p_text, 200)
+                res = call_groq(p_text, 300)
                 parts = res.split('|')
                 if len(parts) >= 6:
                     st.session_state.form_model = parts[0].strip()
@@ -80,10 +80,8 @@ Text inzerátu: "{clean_ad}"
                 st.warning(f"Pozor: Automatické vyplnění selhalo ({e}), text inzerátu byl uložen do výbavy.")
 
 st.markdown("---")
-
 st.markdown("### 🔍 Přehled načtených parametrů a výbavy")
 
-# Strukturované zobrazení pomocí tabulek (2 sloupce: Parametry vlevo, Výbava vpravo)
 col_t1, col_t2 = st.columns(2)
 
 with col_t1:
@@ -102,12 +100,10 @@ with col_t2:
     st.markdown("#### 🛡️ Výbava / Text inzerátu")
     eq_val = st.session_state.parsed_equipment
     if isinstance(eq_val, str) and "," in eq_val:
-        # Pokud je výbava oddělená čárkami, rozsekáme ji do přehledného seznamu v tabulce
         items = [item.strip() for item in eq_val.split(",") if item.strip()]
         df_eq = pd.DataFrame(items, columns=["Prvek výbavy"])
         st.dataframe(df_eq, use_container_width=True, hide_index=True)
     else:
-        # Fallback, pokud jde o surový text nebo delší poznámku
         st.info(eq_val)
 
 st.markdown("---")
@@ -141,7 +137,7 @@ if submitted:
                 search_query = f"{model} {year} cena ojetiny bazar"
                 search_url = f"https://html.duckduckgo.com/html/?q={requests.utils.quote(search_query)}"
                 headers_ddg = {"User-Agent": "Mozilla/5.0"}
-                web_snippets = ""
+                web_snippets = "Tržní data nedostupná."
                 
                 try:
                     resp_ddg = requests.get(search_url, headers=headers_ddg, timeout=10)
@@ -150,51 +146,23 @@ if submitted:
                         clean_snippets = [re.sub(r'<[^>]+>', '', s).strip() for s in snippets[:3]]
                         web_snippets = " ".join(clean_snippets)
                 except Exception:
-                    web_snippets = "Tržní data nedostupná."
+                    pass
 
-                extracted_equipment_desc = st.session_state.parsed_equipment
+                main_prompt = f"""Jsi špičkový český automobilový expert. Napiš PODROBNÝ expertní posudek pro:
+                Model: {model}, Rok: {year}, Nájezd: {km} km, Cena: {price} Kč, Palivo: {fuel}, Převodovka: {gearbox}
+                Výbava: {st.session_state.parsed_equipment}
+                Tržní kontext: {web_snippets}
+
+                Struktura (dodrž ji):
+                ## VERDIKT: [KUPUJ / ZVÁŽIT / RUCE PRYČ]
+                ### 💰 Tržní hodnocení
+                ### ⚙️ Technický stav (motor/převodovka)
+                ### ⚠️ Typické slabiny
+                ### 🔍 Inspekční checklist
+                ### 🏁 Nákupní taktika"""
                 
-                main_prompt = f"""Jsi špičkový český automobilový expert na ojetá auta. Napiš PODROBNÝ, VYČERPÁVAJÍCÍ a KOMPLETNÍ expertní posudek v češtině. Nepochybně vypiš všechny sekce detailně, nic nezkracuj.
-
-Hodnocené vozidlo:
-- Model: {model}
-- Rok výroby: {year}
-- Nájezd: {km} km
-- Inzerovaná cena: {price} Kč
-- Palivo: {fuel} | Převodovka: {gearbox}
-- Výbava: {extracted_equipment_desc}
-- Tržní kontext: {web_snippets}
-
-Použij tuto přesnou strukturu nadpisů a rozveď každou sekci:
-
-## VERDIKT: [Zvol jedno: KUPUJ / FÉROVÁ NABÍDKA nebo ZVÁŽIT / JEDNAT O CENU nebo RUCE PRYČ / PŘEDRAŽENO]
-**Shrnutí:** [Podrobné shrnutí v 1-2 větách]
-
-### 💰 Tržní hodnocení ceny a férové rozpětí
-[Napiš detailní rozbor ceny, uveď konkrétní tržní rozpětí férové ceny v Kč a odhadni servisní náklady na následující 2 roky]
-
-### ⚙️ Technický stav: Motor a převodovka
-[Podrobný rozbor konkrétní motorizace, její spolehlivosti, chování převodovky (DSG/manuál) a na co si dát u tohoto pohonu pozor]
-
-### ⚠️ Typické slabiny a rizika
-* [Slabina 1 a jak se projevuje]
-* [Slabina 2 a jak se projevuje]
-* [Slabina 3 a jak se projevuje]
-
-### 🔍 Inspekční checklist při prohlídce
-* [Konkrétní bod kontroly 1]
-* [Konkrétní bod kontroly 2]
-* [Konkrétní bod kontroly 3]
-* [Konkrétní bod kontroly 4]
-
-### 🏁 Doporučení a nákupní taktika
-[Detailní závěrečné doporučení, zda auto jet projet na diagnostiku, jak smlouvat a jaké argumenty použít]
-"""
-
-                analysis_result = call_groq(main_prompt, 2500)
-                
+                analysis_result = call_groq(main_prompt)
                 st.markdown("---")
                 st.markdown(analysis_result)
-                
             except Exception as e:
-                st.error(f"Chyba při generování analýzy: {e}")
+                st.error(f"Chyba: {e}")
