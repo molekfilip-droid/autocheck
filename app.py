@@ -52,20 +52,21 @@ if st.button("✨ Načíst data z textu inzerátu"):
         with st.spinner("AI parsuje inzerát a detekuje výbavu..."):
             try:
                 clean_ad = ad_text_input.replace('"', "'").replace('\n', ' ')[:3000]
-                p_text = f"""Jsi přísný JSON parser. Z následujícího textu inzerátu extrahuj data a vrať POUZE a JENOM validní JSON objekt. Žádný úvodní text, žádný markdown, začni rovnou znakem {{ a konči }}.
-
-Text inzerátu: "{clean_ad}"
-
-Požadovaný formát JSON:
-{{
-    "model": "přesná značka a model",
-    "year": 2020,
-    "km": 0,
-    "price": 0,
-    "fuel": "Benzín",
-    "gearbox": "Manuální",
-    "equipment_summary": "Kompletní detailní přehled prvků výbavy"
-}}"""
+                p_text = (
+                    "Jsi přísný JSON parser. Z následujícího textu inzerátu extrahuj data a vrať POUZE a JENOM validní JSON objekt. "
+                    "Žádný úvodní text, žádný markdown, začni rovnou znakem { a konči }.\n\n"
+                    f'Text inzerátu: "{clean_ad}"\n\n'
+                    "Požadovaný formát JSON:\n"
+                    "{\n"
+                    '    "model": "přesná značka a model",\n'
+                    '    "year": 2020,\n'
+                    '    "km": 0,\n'
+                    '    "price": 0,\n'
+                    '    "fuel": "Benzín",\n'
+                    '    "gearbox": "Manuální",\n'
+                    '    "equipment_summary": "Kompletní detailní přehled prvků výbavy"\n'
+                    "}"
+                )
                 res = call_groq(p_text, 800)
                 res_clean = re.sub(r'^```json\s*', '', res, flags=re.IGNORECASE)
                 res_clean = re.sub(r'^```\s*', '', res_clean)
@@ -104,38 +105,4 @@ st.markdown("### 🚗 Parametry vozidla")
 c1, c2 = st.columns(2)
 
 model = c1.text_input("Značka a model", value=st.session_state.form_model)
-year = c2.number_input("Rok výroby", min_value=1990, max_value=2026, value=int(st.session_state.form_year))
-km = c1.number_input("Nájezd (km)", min_value=0, value=int(st.session_state.form_km), step=1000)
-price = c2.number_input("Cena (Kč)", min_value=0, value=int(st.session_state.form_price), step=10000)
-
-f_opts = ["Benzín", "Nafta", "Hybrid", "Elektro"]
-curr_f = st.session_state.get("form_fuel", "Benzín")
-f_index = f_opts.index(curr_f) if curr_f in f_opts else 0
-fuel = c1.selectbox("Palivo", f_opts, index=f_index)
-
-g_opts = ["Manuální", "Automatická"]
-curr_g = st.session_state.get("form_gearbox", "Manuální")
-g_index = g_opts.index(curr_g) if curr_g in g_opts else 0
-gearbox = c2.selectbox("Převodovka", g_opts, index=g_index)
-
-submitted = st.button("🚀 Spustit hloubkovou expertní analýzu", type="primary")
-
-if submitted:
-    if not api_key:
-        st.error("Chybí Groq API klíč.")
-    elif not model.strip():
-        st.warning("Zadej značku a model vozidla.")
-    else:
-        with st.spinner("Špičkový mechanik prověřuje techniku, reálnou výbavu a trh..."):
-            try:
-                clean_full_ad = ad_text_input.replace('"', "'").replace('\n', ' ')[:4000] if ad_text_input else "Neuveden"
-                
-                json_template = """{
-    "verdict": "🟢 KUPUJ / VÝBORNÁ NABÍDKA",
-    "verdict_summary": "1-2 věty přesného shrnutí",
-    "fair_price_min": 100000,
-    "fair_price_max": 150000,
-    "price_evaluation": "Podrobný rozbor ceny s ohledem na konkrétní výbavu, stav trhu a nájezd v ČR",
-    "engine_gearbox_analysis": "Odborný technický rozbor motoru, převodovky a jejich specifik pro tento model",
-    "common_failures": ["Reálná slabina 1", "Reálná slabina 2", "Reálná slabina 3"],
-    "serv
+year = c2.number_input
