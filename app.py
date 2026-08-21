@@ -6,37 +6,105 @@ import json
 st.set_page_config(page_title="AutoCheck CZ", page_icon="🚗")
 
 st.title("🚗 AutoCheck CZ")
-st.subheader("Rychlá analýza ojetiny pomocí AI (zdarma přes Groq)")
+st.subheader("Chytrá analýza ojetiny s podporou AI")
 
 # Sidebar pro API klíč
-st.sidebar.markdown("### Jak získat klíč zdarma:")
-st.sidebar.markdown("1. Jdi na [console.groq.com/keys](https://console.groq.com/keys)")
-st.sidebar.markdown("2. Přihlas se (např. Google účtem)")
-st.sidebar.markdown("3. Vygeneruj a vlož klíč níže:")
+st.sidebar.markdown("### Groq API Klíč (Zdarma)")
+api_key = st.sidebar.text_input("Vlož svůj Groq API Key", type="password")
 
-api_key = st.sidebar.text_input("Groq API Key", type="password")
+# --- NOVINKA: SEKCE PRO AUTOMATICKÉ NAČTENÍ Z INZERÁTU ---
+st.markdown("### 📋 Automatické vyplnění z inzerátu")
+st.markdown("Zkopíruj text inzerátu (např. z bazoše nebo sauta) sem a AI ti sama předvyplní parametry auta:")
 
-# Formulář
+ad_text_input = st.text_area("Text inzerátu", placeholder="Zde vlož text inzerátu např.: Prodám Škoda Octavia 1.5 TSI, r.v. 2021, najeto 118 000 km, cena 399 000 Kč...")
+
+# Stavové proměnné pro předvyplnění formuláře
+if "form_model" not in st.session_state:
+    st.session_state.form_model = "Škoda Octavia 1.5 TSI"
+    st.session_state.form_year = 2021
+    st.session_state.form_km = 118000
+    st.session_state.form_price = 399000
+    st.session_state.form_fuel = "Benzín"
+    st.session_state.form_gearbox = "Manuální"
+
+if st.button("✨ Načíst data z textu inzerátu"):
+    if not api_key:
+        st.error("Pro chytré načtení nejprve vlož Groq API klíč v levém panelu.")
+    elif not ad_text_input.strip():
+        st.warning("Vlož nejdřív text inzerátu.")
+    else:
+        with st.spinner("AI čte inzerát..."):
+            try:
+                client = openai.OpenAI(
+                    base_url="https://api.groq.com/openai/v1",
+                    api_key=api_key
+                )
+                parse_prompt = f"""
+                Jsi parser inzerátů ojetých aut. Z následujícího textu inzerátu vytáhni údaje a vrať POUZE validní JSON (bez markdownu ```json):
+                Text inzerátu: "{ad_text_input}"
+                
+                Struktura JSON:
+                {{
+                    "model": "přesná značka a model auta (např. Škoda Octavia 1.5 TSI)",
+                    "year": rok výroby jako celé číslo (např. 2021),
+                    "km": nájezd v km jako celé číslo (např. 118000),
+                    "price": cena v Kč jako celé číslo (např. 399000),
+                    "fuel": "Benzín" nebo "Nafta" nebo "Hybrid" nebo "Elektro",
+                    "gearbox": "Manuální" nebo "Automatická"
+                }}
+                """
+                response = client.chat.completions.create(
+                    model="openai/gpt-oss-20b",
+                    messages=[{"role": "user", "content": parse_prompt}],
+                    temperature=0.1
+                )
+                res_text = response.choices[0].message.content.strip()
+                if res_text.startswith("```json"): res_text = res_text[7:]
+                if res_text.endswith("```"): res_text = res_text[:-3]
+                
+                parsed_data = json.loads(res_text.strip())
+                
+                # Uložení do session state pro aktualizaci formuláře
+                st.session_state.form_model = parsed_data.get("model", st.session_state.form_model)
+                st.session_state.form_year = int(parsed_data.get("year", st.session_state.form_year))
+                st.session_state.form_km = int(parsed_data.get("km", st.session_state.form_km))
+                st.session_state.form_price = int(parsed_data.get("price", st.session_state.form_price))
+                st.session_state.form_fuel = parsed_data.get("fuel", st.session_state.form_fuel)
+                st.session_state.form_gearbox = parsed_data.get("gearbox", st.session_state.form_gearbox)
+                
+                st.success("Údaje úspěšně načteny do formuláře níže!")
+            except Exception as e:
+                st.error(f"Nepodařilo se natáhnout data: {e}")
+
+st.markdown("---")
+
+# --- HLAVNÍ FORMULÁŘ ---
 with st.form("car_form"):
+    st.markdown("### 🚗 Parametry vozidla (zkontroluj / uprav)")
     col1, col2 = st.columns(2)
-    model = col1.text_input("Značka a model", value="Škoda Octavia 1.5 TSI")
-    year = col2.number_input("Rok výroby", min_value=1990, max_value=2026, value=2021)
+    model = col1.text_input("Značka a model", value=st.session_state.form_model)
+    year = col2.number_input("Rok výroby", min_value=1990, max_value=2026, value=st.session_state.form_year)
     
-    km = col1.number_input("Nájezd (km)", min_value=0, value=118000)
-    price = col2.number_input("Cena (Kč)", min_value=0, value=399000)
+    km = col1.number_input("Nájezd (km)", min_value=0, value=st.session_state.form_km)
+    price = col2.number_input("Cena (Kč)", min_value=0, value=st.session_state.form_price)
     
-    fuel = st.selectbox("Palivo", ["Benzín", "Nafta", "Hybrid", "Elektro"])
-    gearbox = st.selectbox("Převodovka", ["Manuální", "Automatická"])
+    fuel_options = ["Benzín", "Nafta", "Hybrid", "Elektro"]
+    default_fuel_idx = fuel_options.index(st.session_state.form_fuel) if st.session_state.form_fuel in fuel_options else 0
+    fuel = st.selectbox("Palivo", fuel_options, index=default_fuel_idx)
     
-    submitted = st.form_submit_button("Analyzovat nabídku")
+    gearbox_options = ["Manuální", "Automatická"]
+    default_gear_idx = gearbox_options.index(st.session_state.form_gearbox) if st.session_state.form_gearbox in gearbox_options else 0
+    gearbox = st.selectbox("Převodovka", gearbox_options, index=default_gear_idx)
+    
+    submitted = st.form_submit_button("🔍 Analyzovat nabídku")
 
 if submitted:
     if not api_key:
         st.error("Prosím, vlož v levém panelu svůj Groq API klíč.")
     else:
-        with st.spinner('AI analyzuje data...'):
+        with st.spinner('AI analyzuje trh a staví verdikt...'):
             client = openai.OpenAI(
-                base_url="https://api.groq.com/openai/v1",
+                base_url="[https://api.groq.com/openai/v1](https://api.groq.com/openai/v1)",
                 api_key=api_key
             )
             
@@ -76,7 +144,6 @@ if submitted:
                 data = json.loads(result_text.strip())
                 
                 st.subheader(f"Výsledek: {data['verdict']}")
-                
                 st.metric("Odhadovaná férová cena", f"{data['fair_price_min']:,} - {data['fair_price_max']:,} Kč")
                 st.write(f"**Poměr cena/nájezd:** {data['price_ratio_text']}")
                 st.write(f"**Odhad servisu (2 roky):** {data['servicing_cost']}")
