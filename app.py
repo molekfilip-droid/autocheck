@@ -29,7 +29,7 @@ if "form_model" not in st.session_state:
 def call_groq(prompt_text, max_tokens=2500):
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     payload = {
-        "model": "openai/gpt-oss-20b",  # Ověřený a dostupný model
+        "model": "openai/gpt-oss-20b",
         "messages": [{"role": "user", "content": prompt_text}],
         "temperature": 0.1,
         "max_tokens": max_tokens
@@ -49,7 +49,7 @@ if st.button("✨ Načíst data z textu inzerátu"):
         with st.spinner("AI parsuje parametry a výbavu..."):
             try:
                 clean_ad = ad_text_input.replace('"', "'").replace('\n', ' ').replace('\r', ' ')
-                p_text = f"""Jsi JSON extraktor inzerátů. Z následujícího textu vyextrahuj data a vrať PŘESNĚ a POUZE validní JSON objekt. Neobaluj ho do žádného textu navíc, začni rovnou složenou závorkou {{ a skonči }}:
+                p_text = f"""Jsi JSON extraktor inzerátů. Z následujícího textu vyextrahuj data. Vrať VÝHRADNĚ platný JSON obalený do bloků ```json a ```. Žádný jiný text nepiš!
 {{
   "model": "Značka a model",
   "rok": 2020,
@@ -57,24 +57,33 @@ if st.button("✨ Načíst data z textu inzerátu"):
   "cena": 300000,
   "palivo": "Nafta",
   "prevodovka": "Automatická",
-  "vybava": ["ABS", "Navigace", "Vyhřívaná sedadla"]
+  "vybava": [
+    {{"kategorie": "Bezpečnost", "prvek": "ABS"}},
+    {{"kategorie": "Komfort", "prvek": "Vyhřívaná sedadla"}}
+  ]
 }}
 
 Pravidla:
-- Palivo musí být přesně jedno z: "Benzín", "Nafta", "Hybrid", "Elektro"
-- Převodovka musí být přesně jedna z: "Manuální", "Automatická"
-- Vybava je pole (list) stringů jednotlivých prvků výbavy, vyházej marketingové kecy.
+- Palivo: "Benzín", "Nafta", "Hybrid" nebo "Elektro"
+- Převodovka: "Manuální" nebo "Automatická"
+- Vybava je pole objektů obsahující "kategorie" (např. Bezpečnost, Komfort, Asistenti, Exteriér, Interiér) a "prvek".
 
 Text inzerátu: "{clean_ad}"
 """
                 res = call_groq(p_text, 1200)
                 
-                # Inteligentní vytažení čistého JSONu z odpovědi pomocí regulárního výrazu
-                json_match = re.search(r'\{.*\}', res, re.DOTALL)
-                if not json_match:
-                    raise Exception("Odpověď neobsahuje platný JSON formát.")
+                # Bezpečné vytáhnutí JSONu i kdyby model přidal povídání okolo
+                match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', res, re.DOTALL)
+                if match:
+                    json_str = match.group(1)
+                else:
+                    match_brace = re.search(r'(\{.*\})', res, re.DOTALL)
+                    if match_brace:
+                        json_str = match_brace.group(1)
+                    else:
+                        raise Exception("Odpověď neobsahuje JSON strukturu.")
                 
-                data = json.loads(json_match.group(0))
+                data = json.loads(json_str)
                 
                 st.session_state.form_model = data.get("model", "")
                 st.session_state.form_year = int(data.get("rok", 2020))
@@ -87,22 +96,25 @@ Text inzerátu: "{clean_ad}"
                 g_val = data.get("prevodovka", "Manuální")
                 st.session_state.form_gearbox = g_val if g_val in ["Manuální", "Automatická"] else "Manuální"
                 
-                eq = data.get("vybava", [])
-                st.session_state.parsed_equipment = [str(item).strip().capitalize() for item in eq if item]
+                st.session_state.parsed_equipment = data.get("vybava", [])
                 
                 st.success("Data úspěšně načtena a strukturována!")
             except Exception as e:
-                st.session_state.parsed_equipment = [ad_text_input]
+                st.session_state.parsed_equipment = [{"kategorie": "Neznámé", "prvek": ad_text_input}]
                 st.warning(f"Pozor: Parsování selhalo ({e}), uloženo jako text.")
 
 st.markdown("---")
 
-with st.expander("🔍 Zkontrolovat načtenou výbavu (Strukturovaný přehled)", expanded=True):
+with st.expander("🔍 Zkontrolovat načtenou výbavu (Tabulka)", expanded=True):
     eq_list = st.session_state.parsed_equipment
-    if isinstance(eq_list, list) and len(eq_list) > 0:
-        cols = st.columns(3)
-        for i, item in enumerate(eq_list):
-            cols[i % 3].markdown(f"✅ {item}")
+    if isinstance(eq_list, list) and len(eq_list) > 0 and isinstance(eq_list[0], dict):
+        import pandas as pd
+        df = pd.DataFrame(eq_list)
+        df.columns = ["Kategorie", "Prvek výbavy"]
+        st.dataframe(df, use_container_width=True, hide_index=True)
+    elif isinstance(eq_list, list) and len(eq_list) > 0:
+        for item in eq_list:
+            st.markdown(f"✅ {item}")
     else:
         st.info("Zatím není načtená žádná výbava.")
 
@@ -146,7 +158,7 @@ if submitted:
                 except Exception:
                     web_snippets = "Tržní data nedostupná."
 
-                eq_text = ", ".join(st.session_state.parsed_equipment) if isinstance(st.session_state.parsed_equipment, list) else str(st.session_state.parsed_equipment)
+                eq_text = ", ".join([f"{x.get('kategorie')}: {x.get('prvek')}" for x in st.session_state.parsed_equipment if isinstance(x, dict)])
                 
                 main_prompt = f"""Jsi špičkový český automobilový expert na ojetá auta. Napiš PODROBNÝ, VYČERPÁVAJÍCÍ a KOMPLETNÍ expertní posudek v češtině.
 
