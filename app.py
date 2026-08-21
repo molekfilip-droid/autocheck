@@ -90,4 +90,14 @@ Struktura JSON:
             except Exception as e:
                 st.error(f"Chyba při parsování: {e}")
 
-st.
+st.markdown("---")
+
+with st.expander("🔍 Zkontrolovat načtenou výbavu", expanded=True):
+    st.info(st.session_state.parsed_equipment)
+
+st.markdown("### 🚗 Parametry vozidla")
+c1, c2 = st.columns(2)
+model = c1.text_input("Značka a model", value=st.session_state.form_model)
+year = c2.number_input("Rok výroby", min_value=1990, max_value=2026, value=int(st.session_state.form_year))
+km = c1.number_input("Nájezd (km)", min_value=0, value=int(st.session_state.form_km), step=1000)
+price = c2.number_input("Cena (Kč)", min_value=0, value=int(st.session_state.form_price), step=
