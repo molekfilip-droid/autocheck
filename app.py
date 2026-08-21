@@ -81,4 +81,18 @@ if st.button("✨ Načíst data z textu inzerátu"):
                 parsed_data = json.loads(res_text.strip())
                 
                 st.session_state.form_model = parsed_data.get("model", st.session_state.form_model)
-                st.session_state.form_year = int(parsed_data.get("year", st.session_state.
+                st.session_state.form_year = int(parsed_data.get("year", 2020))
+                st.session_state.form_km = int(parsed_data.get("km", 0))
+                st.session_state.form_price = int(parsed_data.get("price", 0))
+                st.session_state.form_fuel = parsed_data.get("fuel", "Benzín")
+                st.session_state.form_gearbox = parsed_data.get("gearbox", "Manuální")
+                st.session_state.parsed_equipment = parsed_data.get("equipment_summary", "Výbava nebyla specificky detekována.")
+                
+                st.success("Údaje a výbava úspěšně načteny!")
+            except Exception as e:
+                st.error(f"Chyba při parsování: {e}")
+
+st.markdown("---")
+
+# Zobrazení toho, co AI z inzerátu vytáhla stran výbavy
+with st.expander("🔍 Zkontrolov
