@@ -46,26 +46,23 @@ if st.button("✨ Načíst data z textu inzerátu"):
     else:
         with st.spinner("AI parsuje inzerát a detekuje výbavu..."):
             try:
-                # Ošetření textu inzerátu proti rozbití JSON promptu
                 clean_ad = ad_text_input.replace('"', "'").replace('\n', ' ')
-                p_text = f"""Jsi parser inzerátů. Z následujícího textu vrať POUZE validní JSON. Žádný markdown, žádný text kolem. Vše v češtině!
+                p_text = f"""Jsi špičkový parser inzerátů ojetých vozů. Z následujícího textu extrahuj klíčové parametry a detailně shrň výbavu. Vrať POUZE validní JSON, žádný markdown. Vše v češtině!
 Text inzerátu: "{clean_ad}"
 
 Struktura JSON:
 {{
-    "model": "značka a model",
-    "year": 2020,
-    "km": 0,
-    "price": 0,
-    "fuel": "Benzín",
-    "gearbox": "Manuální",
-    "equipment_summary": "Stručný přehled výbavy"
+    "model": "přesná značka a model",
+    "year": rok výroby číslo,
+    "km": nájezd v km číslo,
+    "price": cena v Kč číslo,
+    "fuel": "Benzín" nebo "Nafta" nebo "Hybrid" nebo "Elektro",
+    "gearbox": "Manuální" nebo "Automatická",
+    "equipment_summary": "Kompletní detailní přehled prvků výbavy zmíněných v inzerátu (asistenti, světla, interiér, kola atd.)"
 }}"""
-                res = call_groq(p_text, 600)
-                
-                # Vyčištění odpovědi od případných markdown bloků
+                res = call_groq(p_text, 800)
                 res = re.sub(r'^```json\s*', '', res, flags=re.IGNORECASE)
-                res = re.sub(r'^```\s*', '', res, flags=re.IGNORECASE)
+                res = re.sub(r'^```\s*', '', res)
                 res = re.sub(r'\s*```$', '', res)
                 
                 data = json.loads(res.strip())
@@ -83,7 +80,7 @@ Struktura JSON:
                 st.session_state.parsed_equipment = str(data.get("equipment_summary", "Bez popisu výbavy."))
                 st.success("Údaje a výbava úspěšně načteny!")
             except Exception as e:
-                st.error(f"Chyba při parsování: {e}. Zkus text inzerátu vložit znovu nebo upravit.")
+                st.error(f"Chyba při parsování: {e}. Zkus text inzerátu vložit znovu.")
 
 st.markdown("---")
 
@@ -114,29 +111,43 @@ if submitted:
     elif not model.strip():
         st.warning("Zadej značku a model vozidla.")
     else:
-        with st.spinner("Špičkový mechanik prověřuje motor, převodovku, výbavu a trh..."):
+        with st.spinner("Špičkový mechanik prověřuje techniku, reálnou výbavu a trh..."):
             try:
                 clean_full_ad = ad_text_input.replace('"', "'").replace('\n', ' ') if ad_text_input else "Neuveden"
-                main_prompt = f"""Jsi hlavní šéfmechanik a soudní znalec v ČR s 25 lety praxe. Proveď detailní analýzu.
-Model: {model}, Rok: {year}, Nájezd: {km} km, Cena: {price} Kč, Palivo: {fuel}, Převodovka: {gearbox}
-Celý inzerát: {clean_full_ad}
+                
+                main_prompt = f"""Jsi přední český automobilový expert, mechanik a soudní znalec s 25 lety praxe. Proveď precizní, technicky bezchybnou a realistickou analýzu ojetého vozu pro český trh.
 
-Pravidlo: Celá odpověď musí být 100% v češtině. Vrať POUZE validní JSON bez jakéhokoliv markdownu či komentářů:
+Parametry vozidla:
+- Model: {model}
+- Rok výroby: {year}
+- Nájezd: {km} km
+- Cena: {price} Kč
+- Palivo: {fuel}
+- Převodovka: {gearbox}
+- Výbava a text inzerátu: {clean_full_ad}
+
+Přísná pravidla pro analýzu:
+1. **Analýza výbavy a ceny:** Pečlivě rozeber výbavu uvedenou v inzerátu. Zhodnoť, jak konkrétní prvky (např. LED Matrix, pohon 4x4, adaptivní podvozek, prémiový audio systém, asistenční pakety) reálně ovlivňují hodnotu a cenu vozidla na trhu v ČR. Žádné generické fráze, piš konkrétně o tom, co auto má nebo naopak postrádá.
+2. **Technická přesnost:** Používej správné technické termíny pro danou značku a model (např. správné typy převodovek, typy vstřikování, rozvodů a reálné známé slabiny dané motorizace). Zákaz vymýšlení nesmyslů (žádné dvourychlostní DSG nebo neexistující závady).
+3. **Reálný trh:** Odhadni férovou tržní cenu reálně vzhledem k roku, nájezdu a výbavě.
+
+Vrať POUZE validní JSON bez jakéhokoliv markdownu či komentářů v tomto přesném formátu:
 {{
-    "verdict": "🟢 KUPUJ / VÝBORNÁ NABÍDKA",
-    "verdict_summary": "1-2 věty shrnutí",
-    "fair_price_min": 100000,
-    "fair_price_max": 150000,
-    "price_evaluation": "Rozbor ceny vzhledem k trhu a výbavě",
-    "engine_gearbox_analysis": "Technický rozbor motoru a převodovki",
-    "common_failures": ["Bolístka 1", "Bolístka 2", "Bolístka 3"],
-    "servicing_cost_2years": "Odhad servisu na 2 roky s částkami v Kč",
-    "inspection_checklist": ["Kontrola 1", "Kontrola 2", "Kontrola 3", "Kontrola 4"],
-    "recommendation": "Závěrečné doporučení pro vyjednávání"
+    "verdict": "🟢 KUPUJ / VÝBORNÁ NABÍDKA" nebo "🟡 ZVÁŽIT RIZIKA / MÍRNĚ PŘEDRAŽENO" nebo "🔴 RUCE PRYČ / VELKé RIZIKO",
+    "verdict_summary": "1-2 věty přesného shrnutí",
+    "fair_price_min": min cena číslo,
+    "fair_price_max": max cena číslo,
+    "price_evaluation": "Podrobný rozbor ceny s ohledem na konkrétní výbavu, stav trhu a nájezd v ČR",
+    "engine_gearbox_analysis": "Odborný technický rozbor motoru, převodovky a jejich specifik pro tento model",
+    "common_failures": ["Reálná slabina 1", "Reálná slabina 2", "Reálná slabina 3"],
+    "servicing_cost_2years": "Reálný odhad servisu na 2 roky s konkrétními položkami a částkami v Kč",
+    "inspection_checklist": ["Specifická kontrola pro tento vůz 1", "Kontrola 2", "Kontrola 3", "Kontrola 4"],
+    "recommendation": "Konkrétní doporučení pro vyjednávání a koupi"
 }}"""
+                
                 res = call_groq(main_prompt, 4000)
                 res = re.sub(r'^```json\s*', '', res, flags=re.IGNORECASE)
-                res = re.sub(r'^```\s*', '', res, flags=re.IGNORECASE)
+                res = re.sub(r'^```\s*', '', res)
                 res = re.sub(r'\s*```$', '', res)
                 
                 data = json.loads(res.strip())
@@ -152,21 +163,21 @@ Pravidlo: Celá odpověď musí být 100% v češtině. Vrať POUZE validní JSO
                     st.markdown("**🔧 Odhadovaný servis na 2 roky:**")
                     st.success(data['servicing_cost_2years'])
                 
-                st.markdown("### 💰 Tržní hodnocení ceny")
+                st.markdown("### 💰 Tržní hodnocení ceny a vlivu výbavy")
                 st.write(data['price_evaluation'])
                 
                 st.markdown("### ⚙️ Technický stav: Motor a převodovka")
                 st.write(data['engine_gearbox_analysis'])
                 
-                st.markdown("### ⚠️ Typické slabiny a rizika")
+                st.markdown("### ⚠️ Reálná rizika a slabiny modelu")
                 for f in data.get('common_failures', []):
                     st.error(f"• {f}")
                     
-                st.markdown("### 🔍 Inspekční checklist")
+                st.markdown("### 🔍 Inspekční checklist pro toto auto")
                 for chk in data.get('inspection_checklist', []):
                     st.warning(f"✓ {chk}")
                     
-                st.markdown("### 🏁 Závěrečný verdikt")
+                st.markdown("### 🏁 Závěrečné doporučení")
                 st.success(data['recommendation'])
                 
             except Exception as e:
