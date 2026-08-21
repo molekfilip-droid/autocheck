@@ -33,7 +33,7 @@ def call_groq(prompt_text, max_tokens=3000):
         "temperature": 0.2,
         "max_tokens": max_tokens
     }
-    response = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=30)
+    response = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=45)
     if response.status_code != 200:
         raise Exception(f"API Error {response.status_code}: {response.text}")
     res_json = response.json()
@@ -49,7 +49,6 @@ if st.button("✨ Načíst data z textu inzerátu"):
     else:
         with st.spinner("AI parsuje inzerát a detekuje výbavu..."):
             try:
-                # Oříznutí textu, aby nedocházelo k přetečení tokenů
                 clean_ad = ad_text_input.replace('"', "'").replace('\n', ' ')[:3000]
                 p_text = f"""Jsi parser inzerátů ojetých vozů. Z následujícího textu extrahuj klíčové parametry a detailně shrň výbavu. Vrať POUZE platný JSON (bez markdown bloků ```json ... ```). Vše v češtině!
 Text inzerátu: "{clean_ad}"
@@ -66,12 +65,10 @@ Struktura JSON:
 }}"""
                 res = call_groq(p_text, 800)
                 
-                # Agresivní vyčištění výstupu od případného markdownu
                 res = re.sub(r'^```json\s*', '', res, flags=re.IGNORECASE)
                 res = re.sub(r'^```\s*', '', res)
                 res = re.sub(r'\s*```$', '', res)
                 
-                # Pokus o nalezení čistého JSON objektu v textu, kdyby AI kecala kolem
                 match = re.search(r'\{.*\}', res, re.DOTALL)
                 if match:
                     res = match.group(0)
@@ -91,31 +88,38 @@ Struktura JSON:
                 st.session_state.parsed_equipment = str(data.get("equipment_summary", "Bez popisu výbavy."))
                 st.success("Údaje a výbava úspěšně načteny!")
             except Exception as e:
-                st.error(f"Chyba při parsování: {e}. Zkus kliknout na tlačítko znovu nebo upravit text.")
+                st.error(f"Chyba při parsování: {e}")
 
 st.markdown("---")
 
 with st.expander("🔍 Zkontrolovat načtenou výbavu", expanded=True):
     st.info(st.session_state.parsed_equipment)
 
-with st.form("car_form"):
-    st.markdown("### 🚗 Parametry vozidla")
-    c1, c2 = st.columns(2)
-    model = c1.text_input("Značka a model", value=st.session_state.form_model)
-    year = c2.number_input("Rok výroby", min_value=1990, max_value=2026, value=st.session_state.form_year)
-    km = c1.number_input("Nájezd (km)", min_value=0, value=st.session_state.form_km, step=1000)
-    price = c2.number_input("Cena (Kč)", min_value=0, value=st.session_state.form_price, step=10000)
-    
-    f_opts = ["Benzín", "Nafta", "Hybrid", "Elektro"]
-    f_idx = f_opts.index(st.session_state.form_fuel) if st.session_state.form_fuel in f_opts else 0
-    fuel = st.selectbox("Palivo", f_opts, index=f_idx)
-    
-    g_opts = ["Manuální", "Automatická"]
-    g_idx = g_opts.index(st.session_state.form_gearbox) if st.session_state.form_gearbox in g_opts else 0
-    gearbox = st.selectbox("Převodovka", g_opts, index=g_idx)
-    
-    submitted = st.form_submit_button("🚀 Spustit hloubkovou expertní analýzu")
+st.markdown("### 🚗 Parametry vozidla")
+c1, c2 = st.columns(2)
+model = c1.text_input("Značka a model", value=st.session_state.form_model)
+year = c2.number_input("Rok výroby", min_value=1990, max_value=2026, value=st.session_state.form_year)
+km = c1.number_input("Nájezd (km)", min_value=0, value=st.session_state.form_km, step=1000)
+price = c2.number_input("Cena (Kč)", min_value=0, value=st.session_state.form_price, step=10000)
+
+f_opts = ["Benzín", "Nafta", "Hybrid", "Elektro"]
+f_idx = f_opts.index(st.session_state.form_fuel) if st.session_state.form_fuel in f_opts else 0
+fuel = st.selectbox("Palivo", f_opts, index=f_idx)
+
+g_opts = ["Manuální", "Automatická"]
+g_idx = g_opts.index(st.session_state.form_gearbox) if st.session_state.form_gearbox in g_opts else 0
+gearbox = st.selectbox("Převodovka", g_opts, index=g_idx)
+
+submitted = st.button("🚀 Spustit hloubkovou expertní analýzu", type="primary")
 
 if submitted:
     if not api_key:
-        st
+        st.error("Chybí Groq API klíč.")
+    elif not model.strip():
+        st.warning("Zadej značku a model vozidla.")
+    else:
+        with st.spinner("Špičkový mechanik prověřuje techniku, reálnou výbavu a trh..."):
+            try:
+                clean_full_ad = ad_text_input.replace('"', "'").replace('\n', ' ')[:4000] if ad_text_input else "Neuveden"
+                
+                main_prompt = f"""Jsi přední český automobilový expert, mechanik a soudní znalec s 25 lety praxe. Proveď precizní, technicky bez
