@@ -16,12 +16,7 @@ st.set_page_config(
     layout="wide"
 )
 
-
-# ============================================================
-# MODEL
-# ============================================================
-
-MODEL = "gemini-2.5-flash"
+MODEL = "gemini-3.6-flash"
 
 
 # ============================================================
@@ -50,10 +45,6 @@ st.markdown("""
     margin-bottom: 25px;
 }
 
-.section-title {
-    margin-top: 10px;
-}
-
 .info-card {
     padding: 16px;
     border-radius: 12px;
@@ -72,6 +63,7 @@ st.markdown("""
     font-weight: 700;
     line-height: 1.35;
     overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .verdict-box {
@@ -98,39 +90,6 @@ st.markdown("""
     font-size: 26px;
     font-weight: 700;
     margin-top: 5px;
-}
-
-.highlight-card {
-    padding: 20px;
-    border-radius: 14px;
-    border: 1px solid rgba(128,128,128,0.2);
-    min-height: 120px;
-}
-
-.highlight-label {
-    color: #9aa5b8;
-    font-size: 14px;
-}
-
-.highlight-value {
-    font-size: 26px;
-    font-weight: 800;
-    margin-top: 8px;
-    overflow-wrap: anywhere;
-}
-
-.redflag {
-    padding: 15px;
-    border-radius: 10px;
-    border: 1px solid rgba(255,80,80,0.25);
-    margin-bottom: 10px;
-}
-
-.goodflag {
-    padding: 15px;
-    border-radius: 10px;
-    border: 1px solid rgba(70,180,100,0.25);
-    margin-bottom: 10px;
 }
 
 </style>
@@ -163,14 +122,9 @@ def get_api_key():
 # ============================================================
 
 ANALYSIS_SCHEMA = {
-
     "type": "object",
 
     "properties": {
-
-        # ----------------------------------------------------
-        # VERDIKT
-        # ----------------------------------------------------
 
         "verdict": {
             "type": "string",
@@ -189,16 +143,9 @@ ANALYSIS_SCHEMA = {
             "type": "string"
         },
 
-        # ----------------------------------------------------
-        # AUTO
-        # ----------------------------------------------------
-
         "car": {
-
             "type": "object",
-
             "properties": {
-
                 "brand": {"type": "string"},
                 "model": {"type": "string"},
                 "year": {"type": "string"},
@@ -210,9 +157,7 @@ ANALYSIS_SCHEMA = {
                 "body": {"type": "string"},
                 "mileage": {"type": "string"},
                 "price": {"type": "string"}
-
             },
-
             "required": [
                 "brand",
                 "model",
@@ -228,37 +173,22 @@ ANALYSIS_SCHEMA = {
             ]
         },
 
-        # ----------------------------------------------------
-        # VÝBAVA
-        # ----------------------------------------------------
-
         "equipment": {
-
             "type": "array",
-
             "items": {
                 "type": "string"
             }
         },
 
-        # ----------------------------------------------------
-        # CENA
-        # ----------------------------------------------------
-
         "price_analysis": {
-
             "type": "object",
-
             "properties": {
-
                 "fair_price": {"type": "string"},
                 "good_buy_price": {"type": "string"},
                 "max_price": {"type": "string"},
                 "market_difference": {"type": "string"},
                 "explanation": {"type": "string"}
-
             },
-
             "required": [
                 "fair_price",
                 "good_buy_price",
@@ -268,14 +198,8 @@ ANALYSIS_SCHEMA = {
             ]
         },
 
-        # ----------------------------------------------------
-        # RED FLAGS
-        # ----------------------------------------------------
-
         "red_flags": {
-
             "type": "object",
-
             "properties": {
 
                 "overall": {
@@ -289,15 +213,10 @@ ANALYSIS_SCHEMA = {
                 },
 
                 "items": {
-
                     "type": "array",
-
                     "items": {
-
                         "type": "object",
-
                         "properties": {
-
                             "title": {"type": "string"},
                             "severity": {
                                 "type": "string",
@@ -309,9 +228,7 @@ ANALYSIS_SCHEMA = {
                             },
                             "description": {"type": "string"},
                             "what_to_check": {"type": "string"}
-
                         },
-
                         "required": [
                             "title",
                             "severity",
@@ -322,14 +239,11 @@ ANALYSIS_SCHEMA = {
                 },
 
                 "missing_information": {
-
                     "type": "array",
-
                     "items": {
                         "type": "string"
                     }
                 }
-
             },
 
             "required": [
@@ -339,14 +253,8 @@ ANALYSIS_SCHEMA = {
             ]
         },
 
-        # ----------------------------------------------------
-        # ZKUŠENOSTI MAJITELŮ
-        # ----------------------------------------------------
-
         "owner_experience": {
-
             "type": "object",
-
             "properties": {
 
                 "reliability": {"type": "string"},
@@ -357,36 +265,23 @@ ANALYSIS_SCHEMA = {
                 "service_cost": {"type": "string"},
 
                 "positive": {
-
                     "type": "array",
-
-                    "items": {
-                        "type": "string"
-                    }
+                    "items": {"type": "string"}
                 },
 
                 "negative": {
-
                     "type": "array",
-
-                    "items": {
-                        "type": "string"
-                    }
+                    "items": {"type": "string"}
                 },
 
                 "typical_problems": {
-
                     "type": "array",
-
-                    "items": {
-                        "type": "string"
-                    }
+                    "items": {"type": "string"}
                 },
 
                 "note": {
                     "type": "string"
                 }
-
             },
 
             "required": [
@@ -403,14 +298,8 @@ ANALYSIS_SCHEMA = {
             ]
         },
 
-        # ----------------------------------------------------
-        # REÁLNÁ CENA VLASTNICTVÍ
-        # ----------------------------------------------------
-
         "ownership_cost": {
-
             "type": "object",
-
             "properties": {
 
                 "purchase_price": {"type": "string"},
@@ -420,7 +309,6 @@ ANALYSIS_SCHEMA = {
                 "risk_reserve": {"type": "string"},
                 "two_year_total": {"type": "string"},
                 "explanation": {"type": "string"}
-
             },
 
             "required": [
@@ -434,14 +322,8 @@ ANALYSIS_SCHEMA = {
             ]
         },
 
-        # ----------------------------------------------------
-        # VYJEDNÁVÁNÍ
-        # ----------------------------------------------------
-
         "negotiation": {
-
             "type": "object",
-
             "properties": {
 
                 "opening_offer": {"type": "string"},
@@ -450,27 +332,19 @@ ANALYSIS_SCHEMA = {
                 "estimated_saving": {"type": "string"},
 
                 "arguments": {
-
                     "type": "array",
-
                     "items": {
-
                         "type": "object",
-
                         "properties": {
-
                             "argument": {"type": "string"},
                             "impact": {"type": "string"}
-
                         },
-
                         "required": [
                             "argument",
                             "impact"
                         ]
                     }
                 }
-
             },
 
             "required": [
@@ -482,14 +356,8 @@ ANALYSIS_SCHEMA = {
             ]
         },
 
-        # ----------------------------------------------------
-        # MÁM TAM JET?
-        # ----------------------------------------------------
-
         "should_visit": {
-
             "type": "object",
-
             "properties": {
 
                 "decision": {
@@ -507,23 +375,14 @@ ANALYSIS_SCHEMA = {
                 },
 
                 "before_trip": {
-
                     "type": "array",
-
-                    "items": {
-                        "type": "string"
-                    }
+                    "items": {"type": "string"}
                 },
 
                 "at_car": {
-
                     "type": "array",
-
-                    "items": {
-                        "type": "string"
-                    }
+                    "items": {"type": "string"}
                 }
-
             },
 
             "required": [
@@ -534,14 +393,8 @@ ANALYSIS_SCHEMA = {
             ]
         },
 
-        # ----------------------------------------------------
-        # TECHNIKA
-        # ----------------------------------------------------
-
         "technical": {
-
             "type": "object",
-
             "properties": {
 
                 "engine": {"type": "string"},
@@ -549,14 +402,9 @@ ANALYSIS_SCHEMA = {
                 "reliability": {"type": "string"},
 
                 "important_points": {
-
                     "type": "array",
-
-                    "items": {
-                        "type": "string"
-                    }
+                    "items": {"type": "string"}
                 }
-
             },
 
             "required": [
@@ -567,27 +415,16 @@ ANALYSIS_SCHEMA = {
             ]
         },
 
-        # ----------------------------------------------------
-        # RIZIKA
-        # ----------------------------------------------------
-
         "risks": {
-
             "type": "array",
-
             "items": {
-
                 "type": "object",
-
                 "properties": {
-
                     "risk": {"type": "string"},
                     "symptoms": {"type": "string"},
                     "verification": {"type": "string"},
                     "repair_cost": {"type": "string"}
-
                 },
-
                 "required": [
                     "risk",
                     "symptoms",
@@ -597,25 +434,14 @@ ANALYSIS_SCHEMA = {
             }
         },
 
-        # ----------------------------------------------------
-        # CHECKLIST
-        # ----------------------------------------------------
-
         "checklist": {
-
             "type": "array",
-
             "items": {
-
                 "type": "object",
-
                 "properties": {
-
                     "item": {"type": "string"},
                     "why": {"type": "string"}
-
                 },
-
                 "required": [
                     "item",
                     "why"
@@ -623,23 +449,14 @@ ANALYSIS_SCHEMA = {
             }
         },
 
-        # ----------------------------------------------------
-        # SERVIS
-        # ----------------------------------------------------
-
         "service": {
-
             "type": "object",
-
             "properties": {
-
                 "normal": {"type": "string"},
                 "likely_repairs": {"type": "string"},
                 "worst_case": {"type": "string"},
                 "two_year_total": {"type": "string"}
-
             },
-
             "required": [
                 "normal",
                 "likely_repairs",
@@ -648,14 +465,9 @@ ANALYSIS_SCHEMA = {
             ]
         },
 
-        # ----------------------------------------------------
-        # ZÁVĚR
-        # ----------------------------------------------------
-
         "conclusion": {
             "type": "string"
         }
-
     },
 
     "required": [
@@ -680,7 +492,7 @@ ANALYSIS_SCHEMA = {
 
 
 # ============================================================
-# AI ANALÝZA
+# ANALÝZA
 # ============================================================
 
 def analyze_car(ad_text):
@@ -694,73 +506,73 @@ def analyze_car(ad_text):
     prompt = f"""
 Jsi profesionální český automobilový analytik.
 
-Tvým úkolem je vytvořit praktický předkupní audit ojetého automobilu.
-Nechci obecné AI povídání. Chci konkrétní informace, které pomohou
-člověku rozhodnout, zda má za automobilem jet a kolik za něj nabídnout.
+Analyzuj následující inzerát ojetého automobilu.
 
-==================================================
-TEXT INZERÁTU
-==================================================
+Cílem není napsat obecný článek.
+Cílem je pomoci kupujícímu rozhodnout:
+
+1. Je auto zajímavé?
+2. Jaká je férová cena?
+3. Jaká rizika má konkrétní konfigurace?
+4. Kolik může stát vlastnictví?
+5. Kolik nabídnout?
+6. Má smysl za autem jet?
+
+TEXT INZERÁTU:
 
 {ad_text}
 
-==================================================
-DŮLEŽITÁ PRAVIDLA
-==================================================
+
+DŮLEŽITÁ PRAVIDLA:
 
 Nevymýšlej údaje, které nejsou známé.
 
-Pokud něco není v inzerátu uvedeno, napiš "neuvedeno".
+Pokud údaj není v inzerátu, použij "neuvedeno".
 
-Velmi důležité:
+Nepředstírej přístup k databázím, pokud ho nemáš.
 
-Nesmíš tvrdit, že máš skutečná data z databáze majitelů,
-pokud je nemáš.
+U zkušeností majitelů používej pouze obecně známé
+typické zkušenosti s daným motorem, převodovkou a modelem.
 
-Nesmíš vymýšlet počet majitelů, počet recenzí ani konkrétní
-statistiky z internetu.
+Nevymýšlej počty majitelů, počty recenzí ani statistiky.
 
-Sekce "Zkušenosti majitelů" proto představuje:
-- typické dlouhodobé zkušenosti s danou motorizací,
-- typické zkušenosti s danou převodovkou,
-- obecně známé silné a slabé stránky dané konfigurace.
+U cen používej odborný orientační odhad.
 
-Na konci této sekce vždy jasně uveď, že jde o orientační
-shrnutí typických zkušeností, nikoliv o skutečný průzkum
-konkrétní databáze majitelů.
+U servisních cen používej realistické rozpětí.
 
-Stejně tak nevymýšlej skutečná aktuální tržní data.
+Buď konkrétní.
 
-Cenové rozpětí je odborný orientační odhad založený na
-parametrech vozidla a typickém trhu.
+Pokud je v inzerátu například vysoký nájezd,
+zohledni ho v ceně a ve vyjednávání.
 
-==================================================
-1. VERDIKT
-==================================================
+Pokud je vozidlo těsně před důležitým servisem,
+použij to jako argument při vyjednávání.
 
-KUPUJ:
-Auto je při uvedené ceně velmi zajímavé.
+Pokud je něco pozitivní, také to uveď.
 
-VYJEDNÁVAT:
-Auto může být zajímavé, ale cena nebo rizika vyžadují
-jednání či důkladnou kontrolu.
+VERDIKT:
 
-RUCE PRYČ:
-Auto je vzhledem k ceně nebo rizikům nevhodná koupě.
+KUPUJ = velmi zajímavá koupě.
+
+VYJEDNÁVAT = zajímavé auto, ale cena nebo rizika
+vyžadují jednání.
+
+RUCE PRYČ = auto je vzhledem k ceně nebo riziku
+nevhodná koupě.
 
 Skóre 1–10.
 
-==================================================
-2. CENA
-==================================================
+
+CENA:
 
 Urči:
 
-Férovou cenu.
-Dobrou nákupní cenu.
-Maximální rozumnou cenu.
+- férovou cenu
+- dobrou nákupní cenu
+- maximální rozumnou cenu
 
 Zohledni:
+
 - rok
 - nájezd
 - motor
@@ -769,34 +581,28 @@ Zohledni:
 - výbavu
 - karoserii
 - pohon
-- uvedený stav
+- stav
 - cenu
 
-Uveď také přibližný rozdíl mezi nabídkovou cenou
-a odhadovanou férovou cenou.
 
-==================================================
-3. RED FLAGS
-==================================================
+RED FLAGS:
 
-Hledej:
+Hledej například:
 
-- podezřelé údaje
-- chybějící informace
-- neobvykle vysoký nájezd
-- podezřelé formulace
+- podezřelý nájezd
 - chybějící servis
-- chybějící VIN
 - nejasný původ
-- nesoulad mezi rokem, nájezdem a cenou
-- potenciální technická rizika
+- chybějící VIN
+- nejasnou historii
+- nesoulad ceny a parametrů
+- technická rizika
+- neobvyklé formulace v inzerátu
 
-Neoznačuj běžnou neuvedenou informaci automaticky jako
+Nedělej z každé chybějící informace automaticky
 velký problém.
 
-==================================================
-4. ZKUŠENOSTI MAJITELŮ
-==================================================
+
+ZKUŠENOSTI:
 
 Uveď typické zkušenosti s:
 
@@ -807,135 +613,118 @@ Uveď typické zkušenosti s:
 - spotřebou
 - servisními náklady
 
-Potom:
+Rozděl:
 
-Co majitelé typicky chválí.
+- co se typicky chválí
+- co se typicky kritizuje
+- typické problémy
 
-Co typicky kritizují.
+Na konci jasně napiš, že jde o orientační shrnutí
+typických zkušeností, nikoli o statistiku konkrétní
+databáze majitelů.
 
-Typické problémy.
 
-NIKDY nevymýšlej počet recenzí nebo počet majitelů.
+REÁLNÁ CENA VLASTNICTVÍ:
 
-==================================================
-5. REÁLNÁ CENA VLASTNICTVÍ
-==================================================
-
-Spočítej orientačně:
+Odhadni:
 
 - kupní cenu
 - běžný servis
 - pravděpodobné opravy
-- pneumatiky/brzdy
+- pneumatiky a brzdy
 - rizikovou rezervu
+- celkové náklady za 2 roky
 
-A odhadni celkové náklady během 2 let.
+Pracuj s realistickým rozpětím.
 
-Pokud nejsou některé informace známé,
-pracuj s rozumným rozpětím.
 
-==================================================
-6. VYJEDNÁVÁNÍ
-==================================================
+VYJEDNÁVÁNÍ:
 
 Navrhni:
 
-STARTOVACÍ NABÍDKU
-CÍLOVOU CENU
-MAXIMÁLNÍ CENU
+- startovací nabídku
+- cílovou cenu
+- maximální cenu
+- odhadovanou úsporu
 
-A konkrétní argumenty.
+Uveď konkrétní argumenty pro prodejce.
 
-Každý argument musí být reálný a vycházet z údajů
-v inzerátu nebo z typického servisního rizika.
+Argumenty musí vycházet z konkrétního auta.
 
-==================================================
-7. MÁM TAM JET?
-==================================================
 
-Vyhodnoť:
+MÁM TAM JET?
+
+Vyber:
 
 ANO
 SPÍŠ ANO
 SPÍŠ NE
 NE
 
-A vysvětli proč.
+Vysvětli proč.
 
-Potom napiš:
+Potom uveď:
 
-Co si vyžádat před cestou.
+- co vyžádat před cestou
+- co zkontrolovat na místě
 
-Co zkontrolovat přímo u auta.
 
-==================================================
-8. TECHNICKÁ ANALÝZA
-==================================================
+TECHNIKA:
 
-Analyzuj konkrétní motor a převodovku.
+Analyzuj konkrétní:
 
-Podle relevantnosti řeš:
-
-- rozvody
+- motor
+- převodovku
 - turbo
+- rozvody
 - vstřiky
-- olej
-- chlazení
 - DPF
 - EGR
 - AdBlue
 - dvouhmotu
 - spojku
-- DSG
-- automat
 - podvozek
 - elektroniku
 
-==================================================
-9. RIZIKA
-==================================================
+Pouze pokud jsou relevantní.
 
-Uveď nejdůležitější rizika.
 
-U každého:
+RIZIKA:
+
+U každého významného rizika uveď:
 
 - problém
 - projevy
-- ověření
-- orientační cena opravy
+- jak ověřit
+- orientační cenu opravy
 
-==================================================
-10. CHECKLIST
-==================================================
 
-Vytvoř praktický checklist před koupí.
+CHECKLIST:
 
-==================================================
-11. SERVIS
-==================================================
+Vytvoř praktický checklist pro fyzickou prohlídku.
 
-Odhad:
+
+SERVIS:
+
+Odhadni:
 
 - běžný servis
 - pravděpodobné opravy
 - špatný scénář
-- celkem za 2 roky
+- celkové náklady za 2 roky
 
-==================================================
-12. ZÁVĚR
-==================================================
 
-Napiš jednoznačně:
+ZÁVĚR:
 
-- zda bys auto koupil
-- za jakou cenu
-- co musí kupující před koupí ověřit
+Napiš jednoznačné doporučení:
 
-==================================================
-VÝSTUP
-==================================================
+- zda bych za auto jel
+- kolik bych nabídl
+- jakou cenu bych nepřekročil
+- co je nutné před koupí ověřit
 
-Vrať POUZE validní JSON podle zadaného schématu.
+
+VRAŤ POUZE VALIDNÍ JSON PODLE SCHÉMATU.
 
 Žádný Markdown.
 Žádné HTML.
@@ -945,11 +734,9 @@ Vrať POUZE validní JSON podle zadaného schématu.
 """
 
 
-    max_attempts = 3
-
     last_error = None
 
-    for attempt in range(max_attempts):
+    for attempt in range(3):
 
         try:
 
@@ -965,8 +752,6 @@ Vrať POUZE validní JSON podle zadaného schématu.
 
                     response_schema=ANALYSIS_SCHEMA,
 
-                    temperature=0.2,
-
                     max_output_tokens=7000
                 )
             )
@@ -974,7 +759,7 @@ Vrať POUZE validní JSON podle zadaného schématu.
             if not response.text:
 
                 raise Exception(
-                    "Služba vrátila prázdnou odpověď."
+                    "Gemini vrátil prázdnou odpověď."
                 )
 
             return json.loads(
@@ -985,7 +770,7 @@ Vrať POUZE validní JSON podle zadaného schématu.
 
             last_error = e
 
-            if attempt < max_attempts - 1:
+            if attempt < 2:
 
                 time.sleep(
                     4 * (attempt + 1)
@@ -1000,7 +785,7 @@ Vrať POUZE validní JSON podle zadaného schématu.
 
 
 # ============================================================
-# POMOCNÉ FUNKCE
+# UI FUNKCE
 # ============================================================
 
 def info_card(label, value):
@@ -1072,7 +857,7 @@ st.sidebar.markdown(
 
 ✓ Red Flags
 
-✓ Typické zkušenosti
+✓ Zkušenosti s konfigurací
 
 ✓ Reálné náklady vlastnictví
 
@@ -1103,21 +888,17 @@ st.markdown(
 
 st.write(
     "Vlož kompletní text automobilového inzerátu. "
-    "AutoCheck z něj automaticky vytáhne důležité údaje "
-    "a vytvoří předkupní audit."
+    "AutoCheck z něj automaticky vytvoří profesionální "
+    "předkupní audit."
 )
 
 ad_text = st.text_area(
-
     "Text inzerátu",
-
     height=380,
-
     placeholder=(
         "Zkopíruj sem celý text inzerátu "
         "z Bazoše, Sauto, TipCars, Mobile.de apod."
     ),
-
     label_visibility="collapsed"
 )
 
@@ -1167,9 +948,7 @@ if st.button(
 
 if "analysis" in st.session_state:
 
-    data = st.session_state[
-        "analysis"
-    ]
+    data = st.session_state["analysis"]
 
 
     # ========================================================
@@ -1543,7 +1322,7 @@ if "analysis" in st.session_state:
 
 
     # ========================================================
-    # ZKUŠENOSTI MAJITELŮ
+    # ZKUŠENOSTI
     # ========================================================
 
     st.markdown("---")
@@ -1683,7 +1462,7 @@ if "analysis" in st.session_state:
 
 
     # ========================================================
-    # REÁLNÁ CENA VLASTNICTVÍ
+    # VLASTNICTVÍ
     # ========================================================
 
     st.markdown("---")
@@ -1693,8 +1472,8 @@ if "analysis" in st.session_state:
     )
 
     st.caption(
-        "Orientační odhad toho, kolik může automobil skutečně "
-        "stát během prvních dvou let vlastnictví."
+        "Orientační odhad celkových nákladů během prvních "
+        "dvou let vlastnictví."
     )
 
 
@@ -1755,18 +1534,13 @@ if "analysis" in st.session_state:
             )
         )
 
-        with st.container(border=True):
-
-            st.caption(
-                "CELKEM / 2 ROKY"
+        score_card(
+            "Celkem / 2 roky",
+            ownership.get(
+                "two_year_total",
+                "Neuvedeno"
             )
-
-            st.markdown(
-                f"## {ownership.get(
-                    'two_year_total',
-                    'Neuvedeno'
-                )}"
-            )
+        )
 
 
     st.write(
@@ -2150,7 +1924,7 @@ if "analysis" in st.session_state:
     )
 
     st.caption(
-        "Vezmi si tento seznam s sebou na prohlídku."
+        "Praktický seznam pro fyzickou prohlídku."
     )
 
 
