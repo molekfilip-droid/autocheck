@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+import json
 import re
 import time
 
@@ -48,49 +49,53 @@ if st.button("✨ Načíst data z textu inzerátu"):
         with st.spinner("AI parsuje parametry a výbavu..."):
             try:
                 clean_ad = ad_text_input.replace('"', "'").replace('\n', ' ').replace('\r', ' ')
-                p_text = f"""Z následujícího textu inzerátu extrahuj data a vrať PŘESNĚ tento formát oddělený středníky (žádný jiný text):
-model|rok|km|cena|palivo|prevodovka|položka1, položka2, položka3, položka4...
+                p_text = f"""Jsi JSON extraktor inzerátů. Z následujícího textu vyextrahuj data a vrať PŘESNĚ a POUZE validní JSON objekt (bez markdown bloků jako ```json ... ```, jen čistý JSON) v tomto formátu:
+{{
+  "model": "Značka a model",
+  "rok": 2020,
+  "km": 150000,
+  "cena": 300000,
+  "palivo": "Nafta",
+  "prevodovka": "Automatická",
+  "vybava": ["ABS", "Navigace", "Vyhřívaná sedadla"]
+}}
 
-Kde poslední část (výbava) bude čistý čárkami oddělený seznam všech prvků výbavy, které v textu najdeš (vyházej marketingové kecy, nechej jen reálné prvky jako ABS, navigace, vyhřívaná sedadla atd.).
+Pravidla:
+- Palivo musí být přesně jedno z: "Benzín", "Nafta", "Hybrid", "Elektro"
+- Převodovka musí být přesně jedna z: "Manuální", "Automatická"
+- Vybava je pole (list) stringů jednotlivých prvků výbavy, vyházej marketingové kecy.
 
 Text inzerátu: "{clean_ad}"
 """
-                res = call_groq(p_text, 1000)
-                parts = res.split('|')
-                if len(parts) >= 6:
-                    st.session_state.form_model = parts[0].strip()
-                    st.session_state.form_year = int(re.sub(r'\D', '', parts[1]) or 2020)
-                    st.session_state.form_km = int(re.sub(r'\D', '', parts[2]) or 0)
-                    st.session_state.form_price = int(re.sub(r'\D', '', parts[3]) or 0)
-                    
-                    f_val = parts[4].strip()
-                    st.session_state.form_fuel = f_val if f_val in ["Benzín", "Nafta", "Hybrid", "Elektro"] else "Benzín"
-                    
-                    g_val = parts[5].strip()
-                    st.session_state.form_gearbox = g_val if g_val in ["Manuální", "Automatická"] else "Manuální"
-                    
-                    if len(parts) > 6:
-                        eq_raw = parts[6].strip()
-                        # Rozsekáme výbavu podle čárek a dvojteček na čistý seznam položek
-                        items = [item.strip().capitalize() for item in re.split(r'[,;]', eq_raw) if len(item.strip()) > 2]
-                        st.session_state.parsed_equipment = sorted(list(set(items)))
-                    else:
-                        st.session_state.parsed_equipment = []
-                        
-                    st.success("Data úspěšně načtena a strukturována!")
-                else:
-                    raise Exception("Chybný formát odpovědi.")
+                res = call_groq(p_text, 1200)
+                # Ošetření pro případ, že by model přidal markdownové ohraničení
+                res_clean = re.sub(r'^```json\s*|\s*```$', '', res, flags=re.DOTALL).strip()
+                data = json.loads(res_clean)
+                
+                st.session_state.form_model = data.get("model", "")
+                st.session_state.form_year = int(data.get("rok", 2020))
+                st.session_state.form_km = int(data.get("km", 0))
+                st.session_state.form_price = int(data.get("cena", 0))
+                
+                f_val = data.get("palivo", "Benzín")
+                st.session_state.form_fuel = f_val if f_val in ["Benzín", "Nafta", "Hybrid", "Elektro"] else "Benzín"
+                
+                g_val = data.get("prevodovka", "Manuální")
+                st.session_state.form_gearbox = g_val if g_val in ["Manuální", "Automatická"] else "Manuální"
+                
+                eq = data.get("vybava", [])
+                st.session_state.parsed_equipment = [str(item).strip().capitalize() for item in eq if item]
+                
+                st.success("Data úspěšně načtena a strukturována!")
             except Exception as e:
                 st.session_state.parsed_equipment = [ad_text_input]
-                st.warning(f"Pozor: Automatické parsování selhalo ({e}), uloženo jako text.")
+                st.warning(f"Pozor: Parsování selhalo ({e}), uloženo jako text.")
 
 st.markdown("---")
 
-# Zde vykreslíme výbavu elegantně do mřížky (sloupců), aby to nevypadalo jako blok textu
 with st.expander("🔍 Zkontrolovat načtenou výbavu (Strukturovaný přehled)", expanded=True):
     eq_list = st.session_state.parsed_equipment
     if isinstance(eq_list, list) and len(eq_list) > 0:
-        # Vytvoříme 3 sloupce pro úhledný vzhled mřížky
         cols = st.columns(3)
         for i, item in enumerate(eq_list):
             cols[i % 3].markdown(f"✅ {item}")
