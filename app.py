@@ -29,7 +29,7 @@ if "form_model" not in st.session_state:
 def call_groq(prompt_text, max_tokens=2500):
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     payload = {
-        "model": "llama-3.1-8b-instant",  # Spolehlivější model pro strukturovaná data
+        "model": "openai/gpt-oss-20b",  # Ověřený a dostupný model
         "messages": [{"role": "user", "content": prompt_text}],
         "temperature": 0.1,
         "max_tokens": max_tokens
