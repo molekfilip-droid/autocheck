@@ -13,7 +13,7 @@ st.subheader("Hloubkový technický posudek, reálná tržní data a nákupní v
 default_key = st.secrets.get("GROQ_API_KEY", "")
 
 st.sidebar.markdown("### Nastavení")
-api_key = st.sidebar.text_input("Groq API Key", value=default_key, type="password").strip()
+user_api_key = st.sidebar.text_input("Groq API Key", value=default_key, type="password").strip()
 
 st.markdown("### 📋 Automatické vyplnění z inzerátu")
 ad_text_input = st.text_area("Zkopíruj text inzerátu (popis, výbavu, parametry)...", placeholder="Sem vlož inzerát z Bazoše, Sauta apod...")
@@ -28,10 +28,18 @@ if "form_model" not in st.session_state:
     st.session_state.parsed_equipment = []
     st.session_state.raw_ad_loaded = False
 
-def call_groq_api(prompt_text, system_prompt="", max_tokens=2000, temperature=0.1):
-    clean_api_key = str(api_key).strip().strip("'").strip('"')
-    url = "[https://api.groq.com/openai/v1/chat/completions](https://api.groq.com/openai/v1/chat/completions)"
-    headers = {"Authorization": f"Bearer {clean_api_key}", "Content-Type": "application/json"}
+def call_groq(prompt_text, system_prompt="", max_tokens=2000, temperature=0.1):
+    # Bezpečné ošetření klíče, aby nikdy neovlivnil URL
+    active_key = str(user_api_key).strip().strip("'").strip('"')
+    if not active_key:
+        raise Exception("Chybí Groq API klíč.")
+        
+    api_url = "https://api.groq.com/openai/v1/chat/completions"
+    
+    headers = {
+        "Authorization": f"Bearer {active_key}", 
+        "Content-Type": "application/json"
+    }
     
     messages = []
     if system_prompt:
@@ -44,16 +52,24 @@ def call_groq_api(prompt_text, system_prompt="", max_tokens=2000, temperature=0.
         "temperature": temperature,
         "max_tokens": max_tokens
     }
+    
     time.sleep(0.5)
-    response = requests.post(url, headers=headers, json=payload, timeout=60)
+    
+    # Explicitní a bezpečné zavolání requests.post
+    response = requests.post(
+        url=api_url, 
+        headers=headers, 
+        json=payload, 
+        timeout=60
+    )
+    
     if response.status_code != 200:
         raise Exception(f"API Error {response.status_code}: {response.text}")
-    
-    res_json = response.json()
-    return res_json["choices"][0]["message"]["content"].strip()
+        
+    return response.json()["choices"][0]["message"]["content"].strip()
 
 if st.button("✨ Načíst data z textu inzerátu"):
-    if not api_key:
+    if not user_api_key:
         st.error("Chybí Groq API klíč v secrets nebo v sidebaru.")
     elif not ad_text_input.strip():
         st.warning("Vlož nejdřív text inzerátu.")
@@ -83,9 +99,9 @@ Pravidla:
 
 Text inzerátu: "{clean_ad}"
 """
-                res = call_groq_api(p_text, system_prompt=sys_prompt, max_tokens=1500, temperature=0.0)
+                res = call_groq(p_text, system_prompt=sys_prompt, max_tokens=1500, temperature=0.0)
                 
-                # Očištění výstupu od případných markdown bloků ```json ... ```
+                # Očištění výstupu od případných markdown bloků
                 res_clean = re.sub(r'^```(?:json)?\s*', '', res, flags=re.IGNORECASE)
                 res_clean = re.sub(r'\s*```$', '', res_clean).strip()
                 
@@ -160,7 +176,7 @@ with st.form("car_form"):
     submitted = st.form_submit_button("🚀 Spustit hloubkovou expertní analýzu")
 
 if submitted:
-    if not api_key:
+    if not user_api_key:
         st.error("Chybí Groq API klíč.")
     elif not model.strip():
         st.warning("Zadej značku a model vozidla.")
@@ -168,7 +184,7 @@ if submitted:
         with st.spinner("Prohledávám trh a generuji hloubkový posudek..."):
             try:
                 search_query = f"{model} {year} cena ojetiny bazar"
-                search_url = f"[https://html.duckduckgo.com/html/?q=](https://html.duckduckgo.com/html/?q=){requests.utils.quote(search_query)}"
+                search_url = f"https://html.duckduckgo.com/html/?q={requests.utils.quote(search_query)}"
                 headers_ddg = {"User-Agent": "Mozilla/5.0"}
                 web_snippets = ""
                 
@@ -219,7 +235,7 @@ Použij tuto přesnou strukturu nadpisů:
 [Doporučení k diagnostice, tipy na smlouvání]
 """
 
-                analysis_result = call_groq_api(main_prompt, max_tokens=2500, temperature=0.1)
+                analysis_result = call_groq(main_prompt, max_tokens=2500, temperature=0.1)
                 st.markdown("---")
                 st.markdown(analysis_result)
                 
