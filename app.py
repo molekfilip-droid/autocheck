@@ -48,34 +48,35 @@ if st.button("✨ Načíst data z textu inzerátu"):
             try:
                 clean_ad = ad_text_input.replace('"', "'").replace('\n', ' ').replace('\r', ' ')
                 
-                # VYLEPŠENÝ PARSOVACÍ PROMPT PRO MAXIMÁLNÍ DETAIL VÝBAVY
-                p_text = f"""Jsi špičkový analytik automobilových inzerátů. Tvým úkolem je vytáhnout z textu inzerátu absolutně všechny detaily. 
-Nesmíš vynechat žádnou zmínku o výbavě, paketech, kolech, asistentech, typu interiéru nebo technických datech.
-
-Text inzerátu: "{clean_ad}"
-
-Vrať POUZE validní JSON ve formátu (žádný markdown, žádný text okolo):
+                p_text = f"""Jsi špičkový analytik automobilových inzerátů. Z následujícího textu inzerátu vyextrahuj parametry a sestav detailní přehled výbavy.
+Odpověz PŘESNĚ v tomto formátu JSON (dodržuj uvozovky, žádný text okolo):
 {{
-    "model": "přesná značka, model a případně motorizace",
+    "model": "značka a model",
     "year": 2020,
     "km": 0,
     "price": 0,
     "fuel": "Benzín",
     "gearbox": "Manuální",
-    "equipment_summary": "Extrémně detailní a vyčerpávající seznam výbavy rozepsaný do kategorií (např. Bezpečnost a asistenti, Komfort a interiéry, Exteriér a světla, Infotainment, Kola/podvozek atd.) tak, jak to zaznělo v inzerátu, nic nevynechej!"
-}}"""
-                
+    "equipment_summary": "Zde vypiš naprosto detailně veškerou výbavu rozdělenou do kategorií (bezpečnost, komfort, exteriér, asistenční systémy atd.)"
+}}
+Text inzerátu: "{clean_ad}"
+"""
                 res = call_groq(p_text, 2500)
                 
+                # Ošetření výstupu od markdownu
                 res = re.sub(r'^```json\s*', '', res, flags=re.IGNORECASE)
                 res = re.sub(r'^```\s*', '', res, flags=re.IGNORECASE)
                 res = re.sub(r'\s*```$', '', res)
                 
+                # Bezpečné nalezení JSON bloku
                 match = re.search(r'\{.*\}', res, re.DOTALL)
                 if match:
-                    res = match.group(0)
+                    json_str = match.group(0)
+                    # Oprava častých chyb v JSONu od LLM (neescapované uvozovky uvnitř řetězců)
+                    data = json.loads(json_str)
+                else:
+                    raise Exception("Nenalezen validní JSON blok v odpovědi.")
                 
-                data = json.loads(res.strip())
                 st.session_state.form_model = str(data.get("model", ""))
                 st.session_state.form_year = int(data.get("year", 2020))
                 st.session_state.form_km = int(data.get("km", 0))
@@ -90,7 +91,9 @@ Vrať POUZE validní JSON ve formátu (žádný markdown, žádný text okolo):
                 st.session_state.parsed_equipment = str(data.get("equipment_summary", "Bez popisu výbavy."))
                 st.success("Kompletní data a detailní výbava úspěšně načteny!")
             except Exception as e:
-                st.error(f"Chyba při parsování: {e}. Zkus text inzerátu vložit znovu nebo upravit.")
+                # Fallback: pokud selže JSON, uložíme alespoň surový text do výbavy, aby uživatel nepřišel o data
+                st.session_state.parsed_equipment = ad_text_input
+                st.warning(fPozor: Automatické parsování narazilo na problém ({e}), ale text inzerátu byl zálohován. Můžeš pokračovat.)
 
 st.markdown("---")
 
@@ -163,7 +166,11 @@ Celá odpověď musí být 100% v češtině. Vrať POUZE validní JSON bez jak�
                 res = re.sub(r'^```\s*', '', res, flags=re.IGNORECASE)
                 res = re.sub(r'\s*```$', '', res)
                 
-                data = json.loads(res.strip())
+                match_main = re.search(r'\{.*\}', res, re.DOTALL)
+                if match_main:
+                    data = json.loads(match_main.group(0))
+                else:
+                    raise Exception("Hlavní model nevrátil platný JSON formát.")
                 
                 st.markdown("---")
                 st.header(f"Výsledek auditu: {data['verdict']}")
