@@ -51,30 +51,42 @@ if st.button("✨ Načíst data z textu inzerátu"):
         with st.spinner("AI vytahuje parametry a výbavu v češtině..."):
             try:
                 clean_ad = ad_text_input.replace('"', "'").replace('\n', ' ').replace('\r', ' ')
-                p_text = f"""Z následujícího inzerátu vyextrahuj parametry a vrať PŘESNĚ v tomto formátu odděleném středníky (žádný jiný text):
+                p_text = f"""Z následujícího inzerátu vyextrahuj parametry a vrať je PŘESNĚ v tomto formátu odděleném svislítky (žádný další text, úvod ani závěr):
 model|rok|km|cena|palivo|prevodovka|vybava
 Například: Škoda Octavia|2019|150000|350000|Nafta|Manuální|Vyhřívané sedačky, navigace
+
+Pravidla pro palivo: Pouze "Benzín", "Nafta", "Hybrid" nebo "Elektro".
+Pravidla pro převodovku: Pouze "Manuální" nebo "Automatická".
+
 Text inzerátu: "{clean_ad}"
 """
-                res = call_groq(p_text, 200)
-                parts = res.split('|')
+                res = call_groq(p_text, 300)
+                # Očištění výstupu od případného markdownu
+                res = res.replace("```", "").strip()
+                parts = [p.strip() for p in res.split('|')]
+                
                 if len(parts) >= 6:
-                    st.session_state.form_model = parts[0].strip()
+                    st.session_state.form_model = parts[0]
                     st.session_state.form_year = int(re.sub(r'\D', '', parts[1]) or 2020)
                     st.session_state.form_km = int(re.sub(r'\D', '', parts[2]) or 0)
                     st.session_state.form_price = int(re.sub(r'\D', '', parts[3]) or 0)
                     
-                    f_val = parts[4].strip()
+                    f_val = parts[4]
                     st.session_state.form_fuel = f_val if f_val in ["Benzín", "Nafta", "Hybrid", "Elektro"] else "Benzín"
                     
-                    g_val = parts[5].strip()
+                    g_val = parts[5]
                     st.session_state.form_gearbox = g_val if g_val in ["Manuální", "Automatická"] else "Manuální"
                     
-                    if len(parts) > 6:
-                        st.session_state.parsed_equipment = parts[6].strip()
+                    if len(parts) > 6 and parts[6]:
+                        st.session_state.parsed_equipment = parts[6]
+                    else:
+                        st.session_state.parsed_equipment = ad_text_input
+                        
                     st.success("Data úspěšně načtena!")
                 else:
-                    raise Exception("Nepodařilo se správně parsovat odpovídající řetězec.")
+                    # Pokud se rozdělení nezdařilo přesně, uložno jako fallback
+                    st.session_state.parsed_equipment = ad_text_input
+                    st.warning("Pozor: AI vrátila netradiční formát, ale text inzerátu byl zachován ve výbavě.")
             except Exception as e:
                 st.session_state.parsed_equipment = ad_text_input
                 st.warning(f"Pozor: Automatické vyplnění selhalo ({e}), text inzerátu byl uložen do výbavy.")
@@ -83,7 +95,6 @@ st.markdown("---")
 
 st.markdown("### 🔍 Přehled načtených parametrů a výbavy")
 
-# Strukturované zobrazení pomocí tabulek (2 sloupce: Parametry vlevo, Výbava vpravo)
 col_t1, col_t2 = st.columns(2)
 
 with col_t1:
@@ -101,13 +112,11 @@ with col_t1:
 with col_t2:
     st.markdown("#### 🛡️ Výbava / Text inzerátu")
     eq_val = st.session_state.parsed_equipment
-    if isinstance(eq_val, str) and "," in eq_val:
-        # Pokud je výbava oddělená čárkami, rozsekáme ji do přehledného seznamu v tabulce
+    if isinstance(eq_val, str) and "," in eq_val and len(eq_val) < 300:
         items = [item.strip() for item in eq_val.split(",") if item.strip()]
         df_eq = pd.DataFrame(items, columns=["Prvek výbavy"])
         st.dataframe(df_eq, use_container_width=True, hide_index=True)
     else:
-        # Fallback, pokud jde o surový text nebo delší poznámku
         st.info(eq_val)
 
 st.markdown("---")
@@ -139,7 +148,7 @@ if submitted:
         with st.spinner("Prohledávám trh a generuji hloubkový posudek..."):
             try:
                 search_query = f"{model} {year} cena ojetiny bazar"
-                search_url = f"https://html.duckduckgo.com/html/?q={requests.utils.quote(search_query)}"
+                search_url = f"[https://html.duckduckgo.com/html/?q=](https://html.duckduckgo.com/html/?q=){requests.utils.quote(search_query)}"
                 headers_ddg = {"User-Agent": "Mozilla/5.0"}
                 web_snippets = ""
                 
