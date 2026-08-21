@@ -41,8 +41,6 @@ def call_groq(prompt_text, max_tokens=3000):
         raise Exception("API vrátilo prázdnou odpověď.")
     
     content = res_json["choices"][0]["message"].get("content", "").strip()
-    if not content:
-        raise Exception("Model vrátil prázdný textový řetězec.")
     return content
 
 if st.button("✨ Načíst data z textu inzerátu"):
@@ -101,3 +99,43 @@ st.markdown("---")
 
 with st.expander("🔍 Zkontrolovat načtenou výbavu", expanded=True):
     st.info(st.session_state.parsed_equipment)
+
+st.markdown("### 🚗 Parametry vozidla")
+c1, c2 = st.columns(2)
+
+model = c1.text_input("Značka a model", value=st.session_state.form_model)
+year = c2.number_input("Rok výroby", min_value=1990, max_value=2026, value=int(st.session_state.form_year))
+km = c1.number_input("Nájezd (km)", min_value=0, value=int(st.session_state.form_km), step=1000)
+price = c2.number_input("Cena (Kč)", min_value=0, value=int(st.session_state.form_price), step=10000)
+
+f_opts = ["Benzín", "Nafta", "Hybrid", "Elektro"]
+curr_f = st.session_state.get("form_fuel", "Benzín")
+f_index = f_opts.index(curr_f) if curr_f in f_opts else 0
+fuel = c1.selectbox("Palivo", f_opts, index=f_index)
+
+g_opts = ["Manuální", "Automatická"]
+curr_g = st.session_state.get("form_gearbox", "Manuální")
+g_index = g_opts.index(curr_g) if curr_g in g_opts else 0
+gearbox = c2.selectbox("Převodovka", g_opts, index=g_index)
+
+submitted = st.button("🚀 Spustit hloubkovou expertní analýzu", type="primary")
+
+if submitted:
+    if not api_key:
+        st.error("Chybí Groq API klíč.")
+    elif not model.strip():
+        st.warning("Zadej značku a model vozidla.")
+    else:
+        with st.spinner("Špičkový mechanik prověřuje techniku, reálnou výbavu a trh..."):
+            try:
+                clean_full_ad = ad_text_input.replace('"', "'").replace('\n', ' ')[:4000] if ad_text_input else "Neuveden"
+                
+                json_template = """{
+    "verdict": "🟢 KUPUJ / VÝBORNÁ NABÍDKA",
+    "verdict_summary": "1-2 věty přesného shrnutí",
+    "fair_price_min": 100000,
+    "fair_price_max": 150000,
+    "price_evaluation": "Podrobný rozbor ceny s ohledem na konkrétní výbavu, stav trhu a nájezd v ČR",
+    "engine_gearbox_analysis": "Odborný technický rozbor motoru, převodovky a jejich specifik pro tento model",
+    "common_failures": ["Reálná slabina 1", "Reálná slabina 2", "Reálná slabina 3"],
+    "serv
