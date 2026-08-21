@@ -1,5 +1,4 @@
 import streamlit as st
-import json
 import requests
 import re
 import time
@@ -26,7 +25,7 @@ if "form_model" not in st.session_state:
     st.session_state.form_gearbox = "Manuální"
     st.session_state.parsed_equipment = "Zatím neuloženo – vlož inzerát a klikni na tlačítko výše."
 
-def call_groq(prompt_text, max_tokens=800):
+def call_groq(prompt_text, max_tokens=1000):
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     payload = {
         "model": "openai/gpt-oss-20b",
@@ -35,8 +34,7 @@ def call_groq(prompt_text, max_tokens=800):
         "max_tokens": max_tokens
     }
     
-    # Bezpečnostní pauza proti překročení limitu tokenů za minutu (TPM)
-    time.sleep(3)
+    time.sleep(2)
     
     response = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=45)
     if response.status_code != 200:
@@ -52,46 +50,33 @@ if st.button("✨ Načíst data z textu inzerátu"):
         with st.spinner("AI vytahuje parametry a výbavu v češtině..."):
             try:
                 clean_ad = ad_text_input.replace('"', "'").replace('\n', ' ').replace('\r', ' ')
-                p_text = f"""Z inzerátu extrahuj data do JSON. Položku "equipment_summary" vyplň výhradně česky.
-Vrať PŘESNĚ tento formát:
-{{
-    "model": "značka a model",
-    "year": 2020,
-    "km": 0,
-    "price": 0,
-    "fuel": "Benzín",
-    "gearbox": "Manuální",
-    "equipment_summary": "přehled výbavy česky"
-}}
-Text: "{clean_ad}"
+                p_text = f"""Z následujícího inzerátu vyextrahuj parametry a vrať PŘESNĚ v tomto formátu odděleném středníky (žádný jiný text):
+model|rok|km|cena|palivo|prevodovka|vybava
+Například: Škoda Octavia|2019|150000|350000|Nafta|Manuální|Vyhřívané sedačky, navigace
+Text inzerátu: "{clean_ad}"
 """
-                res = call_groq(p_text, 400)
-                res = re.sub(r'^```json\s*', '', res, flags=re.IGNORECASE)
-                res = re.sub(r'^```\s*', '', res, flags=re.IGNORECASE)
-                res = re.sub(r'\s*```$', '', res)
-                
-                match = re.search(r'\{.*\}', res, re.DOTALL)
-                if match:
-                    data = json.loads(match.group(0))
+                res = call_groq(p_text, 200)
+                parts = res.split('|')
+                if len(parts) >= 6:
+                    st.session_state.form_model = parts[0].strip()
+                    st.session_state.form_year = int(re.sub(r'\D', '', parts[1]) or 2020)
+                    st.session_state.form_km = int(re.sub(r'\D', '', parts[2]) or 0)
+                    st.session_state.form_price = int(re.sub(r'\D', '', parts[3]) or 0)
+                    
+                    f_val = parts[4].strip()
+                    st.session_state.form_fuel = f_val if f_val in ["Benzín", "Nafta", "Hybrid", "Elektro"] else "Benzín"
+                    
+                    g_val = parts[5].strip()
+                    st.session_state.form_gearbox = g_val if g_val in ["Manuální", "Automatická"] else "Manuální"
+                    
+                    if len(parts) > 6:
+                        st.session_state.parsed_equipment = parts[6].strip()
+                    st.success("Data úspěšně načtena!")
                 else:
-                    raise Exception("Nenalezen validní JSON blok.")
-                
-                st.session_state.form_model = str(data.get("model", ""))
-                st.session_state.form_year = int(data.get("year", 2020))
-                st.session_state.form_km = int(data.get("km", 0))
-                st.session_state.form_price = int(data.get("price", 0))
-                
-                f_val = str(data.get("fuel", "Benzín"))
-                st.session_state.form_fuel = f_val if f_val in ["Benzín", "Nafta", "Hybrid", "Elektro"] else "Benzín"
-                
-                g_val = str(data.get("gearbox", "Manuální"))
-                st.session_state.form_gearbox = g_val if g_val in ["Manuální", "Automatická"] else "Manuální"
-                
-                st.session_state.parsed_equipment = str(data.get("equipment_summary", "Bez popisu výbavy."))
-                st.success("Data úspěšně načtena!")
+                    raise Exception("Nepodařilo se správně parsovat odpovídající řetězec.")
             except Exception as e:
                 st.session_state.parsed_equipment = ad_text_input
-                st.warning(f"Pozor: Parsování narazilo na problém ({e}), text byl zálohován.")
+                st.warning(f"Pozor: Automatické vyplnění selhalo ({e}), text inzerátu byl uložen do výbavy.")
 
 st.markdown("---")
 
@@ -125,7 +110,7 @@ if submitted:
         with st.spinner("Prohledávám trh a generuji posudek..."):
             try:
                 search_query = f"{model} {year} cena ojetiny bazar"
-                search_url = f"[https://html.duckduckgo.com/html/?q=](https://html.duckduckgo.com/html/?q=){requests.utils.quote(search_query)}"
+                search_url = f"https://html.duckduckgo.com/html/?q={requests.utils.quote(search_query)}"
                 headers_ddg = {"User-Agent": "Mozilla/5.0"}
                 web_snippets = ""
                 
@@ -140,73 +125,46 @@ if submitted:
 
                 extracted_equipment_desc = st.session_state.parsed_equipment
                 
-                main_prompt = f"""Jsi český automobilový expert. Celá odpověď musí být v češtině.
+                main_prompt = f"""Jsi špičkový český automobilový expert na ojetá auta. Vypracuj kompletní expertní posudek v češtině.
 
-Vozidlo: {model}, Rok: {year}, Nájezd: {km} km, Cena: {price} Kč, Palivo: {fuel}, Převodovka: {gearbox}
-Výbava: {extracted_equipment_desc}
-Tržní data: {web_snippets}
+Hodnocené vozidlo:
+- Model: {model}
+- Rok výroby: {year}
+- Nájezd: {km} km
+- Inzerovaná cena: {price} Kč
+- Palivo: {fuel} | Převodovka: {gearbox}
+- Výbava: {extracted_equipment_desc}
+- Tržní kontext: {web_snippets}
 
-Odpověz PŘESNĚ v tomto JSON formátu:
-{{
-    "verdict": "🟢 KUPUJ / FÉROVÁ NABÍDKA nebo 🟡 ZVÁŽIT / JEDNAT O CENU nebo 🔴 RUCE PRYČ / PŘEDRAŽENO",
-    "verdict_summary": "Shrnutí v jedné větě.",
-    "fair_price_min": 450000,
-    "fair_price_max": 490000,
-    "price_evaluation": "Zhodnocení ceny.",
-    "engine_gearbox_analysis": "Rozbor motoru a převodovky.",
-    "common_failures": [
-        "Slabina 1",
-        "Slabina 2",
-        "Slabina 3"
-    ],
-    "servicing_cost_2years": "Odhad servisních nákladů na 2 roky.",
-    "inspection_checklist": [
-        "Kontrola 1",
-        "Kontrola 2"
-    ],
-    "recommendation": "Doporučení a taktika."
-}}"""
+Dodrž tuto přesnou strukturu pomocí Markdown nadpisů:
 
-                res = call_groq(main_prompt, 900)
-                res = re.sub(r'^```json\s*', '', res, flags=re.IGNORECASE)
-                res = re.sub(r'^```\s*', '', res, flags=re.IGNORECASE)
-                res = re.sub(r'\s*```$', '', res)
-                
-                match_main = re.search(r'\{.*\}', res, re.DOTALL)
-                if match_main:
-                    data = json.loads(match_main.group(0))
-                else:
-                    raise Exception("Model nevrátil JSON blok.")
+## VERDIKT: [Zvol jedno: KUPUJ / FÉROVÁ NABÍDKA nebo ZVÁŽIT / JEDNAT O CENU nebo RUCE PRYČ / PŘEDRAŽENO]
+**Shrnutí:** [Jedna věta shrnutí]
+
+### 💰 Tržní hodnocení ceny a férové rozpětí
+[Zde zhodnoť cenu, odhadni férové cenové rozpětí a napiš odhadovaný servis na 2 roky]
+
+### ⚙️ Technický stav: Motor a převodovka
+[Rozbor motoru, převodovky a spolehlivosti]
+
+### ⚠️ Typické slabiny a rizika
+* [Slabina 1]
+* [Slabina 2]
+* [Slabina 3]
+
+### 🔍 Inspekční checklist při prohlídce
+* [Na co se zaměřit 1]
+* [Na co se zaměřit 2]
+* [Na co se zaměřit 3]
+
+### 🏁 Doporučení a nákupní taktika
+[Závěrečné doporučení a jak případně smlouvat]
+"""
+
+                analysis_result = call_groq(main_prompt, 1200)
                 
                 st.markdown("---")
-                st.header(f"Výsledek auditu: {data.get('verdict', 'Neznámý verdikt')}")
-                st.info(data.get('verdict_summary', ''))
-                
-                ca, cb = st.columns(2)
-                with ca:
-                    p_min = data.get('fair_price_min', 0)
-                    p_max = data.get('fair_price_max', 0)
-                    st.metric("Odhadovaná férová cena", f"{p_min:,} - {p_max:,} Kč".replace(",", " "))
-                with cb:
-                    st.markdown("**🔧 Odhadovaný servis na 2 roky:**")
-                    st.success(data.get('servicing_cost_2years', 'Neuvedeno'))
-                
-                st.markdown("### 💰 Tržní hodnocení ceny")
-                st.write(data.get('price_evaluation', ''))
-                
-                st.markdown("### ⚙️ Technický stav: Motor a převodovka")
-                st.write(data.get('engine_gearbox_analysis', ''))
-                
-                st.markdown("### ⚠️ Typické slabiny a rizika")
-                for f in data.get('common_failures', []):
-                    st.error(f"• {f}")
-                    
-                st.markdown("### 🔍 Inspekční checklist")
-                for chk in data.get('inspection_checklist', []):
-                    st.warning(f"✓ {chk}")
-                    
-                st.markdown("### 🏁 Závěrečný verdikt a doporučení")
-                st.success(data.get('recommendation', ''))
+                st.markdown(analysis_result)
                 
             except Exception as e:
                 st.error(f"Chyba při generování analýzy: {e}")
