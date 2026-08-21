@@ -13,9 +13,7 @@ st.set_page_config(
     layout="wide"
 )
 
-
-# Aktuální Gemini model
-MODEL = "gemini-3-flash-preview"
+MODEL = "gemini-3.5-flash"
 
 
 # ============================================================
@@ -62,8 +60,15 @@ st.markdown("""
 }
 
 .score {
-    font-size: 46px;
+    font-size: 42px;
     font-weight: 900;
+}
+
+.info {
+    padding: 15px;
+    border-radius: 12px;
+    background: rgba(255,255,255,.04);
+    margin-bottom: 10px;
 }
 
 </style>
@@ -71,50 +76,36 @@ st.markdown("""
 
 
 # ============================================================
-# SESSION STATE
-# ============================================================
-
-if "analysis" not in st.session_state:
-    st.session_state.analysis = None
-
-
-# ============================================================
-# API KEY
+# GEMINI API KEY ZE STREAMLIT SECRETS
 # ============================================================
 
 def get_api_key():
 
-    # Nejprve zkusíme Streamlit secrets
     try:
-        secret = st.secrets.get(
-            "GEMINI_API_KEY",
-            ""
-        )
+        api_key = st.secrets["GEMINI_API_KEY"]
     except Exception:
-        secret = ""
-
-    if secret:
-        return secret.strip()
-
-    # Jinak vezmeme klíč ze sidebaru
-    return st.session_state.get(
-        "manual_api_key",
-        ""
-    ).strip()
-
-
-# ============================================================
-# GEMINI
-# ============================================================
-
-def gemini_call(prompt):
-
-    api_key = get_api_key()
+        raise Exception(
+            "Chybí GEMINI_API_KEY ve Streamlit Secrets.\n\n"
+            "Otevři nastavení aplikace na Streamlit Cloud → "
+            "Settings → Secrets a vlož:\n\n"
+            'GEMINI_API_KEY = "tvůj_api_klíč"'
+        )
 
     if not api_key:
         raise Exception(
-            "Chybí Gemini API Key."
+            "GEMINI_API_KEY ve Secrets je prázdný."
         )
+
+    return api_key.strip()
+
+
+# ============================================================
+# GEMINI REQUEST
+# ============================================================
+
+def ask_gemini(prompt):
+
+    api_key = get_api_key()
 
     try:
 
@@ -124,20 +115,29 @@ def gemini_call(prompt):
 
         response = client.models.generate_content(
             model=MODEL,
-
             contents=prompt,
-
             config=types.GenerateContentConfig(
                 temperature=0.2,
-
                 max_output_tokens=1800,
+                system_instruction="""
+Jsi zkušený český odborník na ojetá auta.
 
-                system_instruction=(
-                    "Jsi zkušený český expert "
-                    "na ojeté automobily. "
-                    "Odpovídej vždy česky, "
-                    "prakticky a konkrétně."
-                )
+Tvým úkolem je pomáhat kupujícímu rozhodnout,
+zda konkrétní ojeté auto stojí za koupi.
+
+Piš česky.
+Buď konkrétní.
+Nevymýšlej si údaje.
+Pokud něco není známé, napiš "neuvedeno".
+
+Rozlišuj mezi:
+1. údaji uvedenými v inzerátu
+2. typickými vlastnostmi daného modelu
+3. věcmi, které je nutné fyzicky ověřit.
+
+Nikdy netvrď, že konkrétní auto má závadu,
+pokud to z poskytnutých informací nelze potvrdit.
+"""
             )
         )
 
@@ -146,6 +146,7 @@ def gemini_call(prompt):
         raise Exception(
             f"Gemini API chyba:\n\n{e}"
         )
+
 
     # ========================================================
     # TEXT ODPOVĚDI
@@ -159,25 +160,40 @@ def gemini_call(prompt):
 
         text = None
 
-    if text:
+
+    if text and text.strip():
 
         return text.strip()
 
 
     # ========================================================
-    # DIAGNOSTIKA PRÁZDNÉ ODPOVĚDI
+    # DETAILNÍ DIAGNOSTIKA
     # ========================================================
 
     details = []
 
     try:
 
-        details.append(
-            f"Response: {response}"
-        )
+        if response.candidates:
+
+            candidate = response.candidates[0]
+
+            details.append(
+                f"Finish reason: "
+                f"{candidate.finish_reason}"
+            )
+
+            if candidate.safety_ratings:
+
+                details.append(
+                    f"Safety ratings: "
+                    f"{candidate.safety_ratings}"
+                )
 
     except Exception:
+
         pass
+
 
     raise Exception(
         "Gemini vrátil prázdnou odpověď.\n\n"
@@ -192,58 +208,59 @@ def gemini_call(prompt):
 def analyze_car(ad_text):
 
     prompt = f"""
-Analyzuj následující inzerát ojetého automobilu.
+Analyzuj tento konkrétní inzerát ojetého automobilu.
 
-TEXT INZERÁTU:
+==============================
+TEXT INZERÁTU
+==============================
 
 {ad_text}
 
-Jsi odborník na nákup ojetých aut v České republice.
+==============================
+ÚKOL
+==============================
 
-Cílem je poradit kupujícímu,
-zda má smysl toto konkrétní auto koupit.
+Zpracuj praktický nákupní posudek.
 
-DŮLEŽITÁ PRAVIDLA:
+Nejde o obecný článek o tomto modelu.
+Chci zjistit, zda je DOBRÝ NÁPAD KOUPIT TENTO KONKRÉTNÍ KUS.
 
-- Nevymýšlej údaje, které nejsou v inzerátu.
-- Pokud údaj není uvedený, napiš "neuvedeno".
-- Rozlišuj mezi tím, co tvrdí prodejce,
-  a tím, co lze považovat za ověřenou skutečnost.
-- U typických závad modelu jasně napiš,
-  že jde o typické riziko, nikoliv potvrzenou závadu.
-- Buď realistický.
-- Nehádej přesnou historii auta.
-- Zaměř se na praktické rozhodnutí kupujícího.
+Pokud chybí důležité údaje,
+výslovně je označ jako "neuvedeno".
 
-Použij následující strukturu:
+==============================
+VÝSTUP
+==============================
 
 # 🚗 VERDIKT
 
-Vyber pouze jednu možnost:
+Vyber jednu možnost:
 
-KUPUJ
+**KUPUJ**
 
-VYJEDNÁVAT
+**VYJEDNÁVAT**
 
-RUCE PRYČ
+**RUCE PRYČ**
+
+Pod verdiktem vysvětli proč.
 
 # ⭐ SKÓRE
 
-Hodnocení od 1 do 10.
+Dej autu hodnocení od 1 do 10.
 
-# 🚘 IDENTIFIKACE AUTA
+# 🚘 IDENTIFIKACE
 
-Značka:
-Model:
-Rok:
-Motor:
-Výkon:
-Palivo:
-Převodovka:
-Pohon:
-Karoserie:
-Nájezd:
-Cena:
+- Značka:
+- Model:
+- Rok:
+- Motor:
+- Výkon:
+- Palivo:
+- Převodovka:
+- Pohon:
+- Karoserie:
+- Nájezd:
+- Cena:
 
 # 🛡️ VÝBAVA
 
@@ -252,163 +269,94 @@ uvedenou v inzerátu.
 
 # 💰 CENA
 
+Urči pokud možno:
+
+- Férová cena:
+- Dobrá nákupní cena:
+- Maximální cena, za kterou bys auto koupil:
+
+Vysvětli, jak jsi k hodnocení došel.
+
+Pokud nemáš dost informací pro přesný odhad,
+řekni to.
+
+# ⚙️ MOTOR A PŘEVODOVKA
+
+Zhodnoť konkrétní motorizaci
+a převodovku.
+
 Uveď:
 
-Férová cena:
-Doporučená maximální cena:
-Cena pro zahájení vyjednávání:
-
-Potom vysvětli,
-proč považuješ cenu za dobrou,
-průměrnou nebo vysokou.
-
-Pokud nemáš dost informací
-pro přesné určení ceny,
-výslovně to napiš.
-
-# ⚙️ TECHNIKA
-
-Zhodnoť:
-
-- motor
-- převodovku
-- pohon
 - spolehlivost
-- očekávané problémy
+- typické závady
+- očekávanou životnost
+- drahé komponenty
+- co je nutné před koupí ověřit
 
-Zaměř se na konkrétní motorizaci,
-pokud ji lze z inzerátu určit.
-
-# ⚠️ NEJVĚTŠÍ RIZIKA
+# ⚠️ HLAVNÍ RIZIKA
 
 Uveď 5 až 8 nejdůležitějších rizik.
 
-U každého napiš:
+U každého:
 
-RIZIKO:
-JAK SE PROJEVUJE:
-JAK HO OVĚŘIT:
+**Riziko:**
+**Jak se projevuje:**
+**Jak ověřit:**
+**Orientační cena opravy:**
 
 # 🔍 CHECKLIST PROHLÍDKY
 
-Napiš 10 konkrétních věcí,
-které má kupující před koupí zkontrolovat.
+Napiš 10 konkrétních bodů,
+které má kupující při prohlídce udělat.
 
-Zahrň například:
+Checklist přizpůsob konkrétnímu autu.
 
-- studený start
-- motor
-- převodovku
-- podvozek
-- brzdy
-- karoserii
-- pneumatiky
-- elektroniku
-- diagnostiku
-- zkušební jízdu
+# 🔧 SERVIS NA 2 ROKY
 
-Ale přizpůsob checklist konkrétnímu autu.
+Odhadni:
 
-# 🔧 SERVIS
+- běžný servis
+- pravděpodobné opravy
+- rizikový scénář
 
-Odhadni potenciální servisní náklady
-na následující 2 roky.
-
-Uveď rozpětí v Kč.
-
-Rozděl je na:
-
-Běžný servis:
-Možné opravy:
-Rizikový scénář:
+Uveď částky v Kč.
 
 # 🤝 VYJEDNÁVÁNÍ
 
 Napiš konkrétní argumenty,
-které může kupující použít
-ke snížení ceny.
+kterými může kupující srazit cenu.
+
+Ne obecné rady typu "zkuste smlouvat".
+
+Chci konkrétní argumenty
+vyplývající z tohoto inzerátu
+nebo daného modelu.
 
 # 🏁 ZÁVĚR
 
-Napiš stručně:
+Odpověz:
 
-- zda bys na auto jel
-- co bys ověřil jako první
-- jakou cenu bys považoval za dobrou
-- za jakých podmínek bys auto koupil
+1. Jel bys toto auto osobně prohlédnout?
+2. Co bys kontroloval jako první?
+3. Jakou cenu bys považoval za dobrou?
+4. Jakou cenu bys už nedal?
+5. Za jakých podmínek bys auto koupil?
 
-Buď praktický a konkrétní.
+Buď stručný, ale konkrétní.
 """
 
 
-    return gemini_call(
-        prompt
-    )
+    return ask_gemini(prompt)
 
 
 # ============================================================
-# SIDEBAR
-# ============================================================
-
-st.sidebar.title(
-    "⚙️ AutoCheck CZ"
-)
-
-
-try:
-
-    secret_key = st.secrets.get(
-        "GEMINI_API_KEY",
-        ""
-    )
-
-except Exception:
-
-    secret_key = ""
-
-
-api_key = st.sidebar.text_input(
-    "Gemini API Key",
-    value=secret_key,
-    type="password"
-)
-
-
-st.session_state.manual_api_key = api_key
-
-
-st.sidebar.markdown("---")
-
-
-st.sidebar.write(
-    "Použitý model:"
-)
-
-st.sidebar.code(
-    MODEL
-)
-
-
-st.sidebar.write(
-    "AI požadavků:"
-)
-
-st.sidebar.success(
-    "1 request / analýza"
-)
-
-
-# ============================================================
-# HLAVNÍ STRÁNKA
+# HLAVNÍ NADPIS
 # ============================================================
 
 st.markdown(
-    '<div class="main-title">'
-    '🚗 AutoCheck CZ'
-    '</div>',
+    '<div class="main-title">🚗 AutoCheck CZ</div>',
     unsafe_allow_html=True
 )
-
 
 st.markdown(
     '<div class="subtitle">'
@@ -419,20 +367,42 @@ st.markdown(
 
 
 # ============================================================
-# INZERÁT
+# SIDEBAR
 # ============================================================
 
-st.markdown(
-    "## 📋 Vlož inzerát"
+st.sidebar.title("⚙️ Nastavení")
+
+st.sidebar.success(
+    "🔐 API klíč načítán ze Streamlit Secrets"
 )
 
+st.sidebar.markdown("---")
+
+st.sidebar.write("AI model:")
+
+st.sidebar.code(
+    MODEL
+)
+
+st.sidebar.markdown("---")
+
+st.sidebar.caption(
+    "Jedna AI analýza = jeden API požadavek."
+)
+
+
+# ============================================================
+# VSTUP INZERÁTU
+# ============================================================
+
+st.markdown("## 📋 Vlož inzerát")
 
 ad_text = st.text_area(
     "Zkopíruj sem celý text inzerátu",
     height=350,
     placeholder=(
-        "Sem vlož celý text z Bazoše, "
-        "Sauto, TipCars nebo autobazaru..."
+        "Sem vlož text z Bazoše, Sauto, TipCars "
+        "nebo autobazaru..."
     )
 )
 
@@ -447,13 +417,7 @@ if st.button(
     use_container_width=True
 ):
 
-    if not api_key:
-
-        st.error(
-            "❌ Zadej Gemini API Key."
-        )
-
-    elif not ad_text.strip():
+    if not ad_text.strip():
 
         st.warning(
             "⚠️ Nejdříve vlož text inzerátu."
@@ -471,11 +435,9 @@ if st.button(
                     ad_text
                 )
 
-                st.session_state.analysis = result
-
-                st.success(
-                    "✅ Analýza dokončena."
-                )
+                st.session_state[
+                    "analysis"
+                ] = result
 
             except Exception as e:
 
@@ -488,44 +450,37 @@ if st.button(
 # VÝSLEDEK
 # ============================================================
 
-if st.session_state.analysis:
+if "analysis" in st.session_state:
 
-    result = st.session_state.analysis
+    result = st.session_state[
+        "analysis"
+    ]
 
     st.markdown("---")
+
+    upper = result.upper()
 
 
     # ========================================================
     # VERDIKT
     # ========================================================
 
-    upper = result.upper()
-
-
     if "RUCE PRYČ" in upper:
 
         verdict = "RUCE PRYČ"
-
         emoji = "🔴"
-
         css = "red"
-
 
     elif "VYJEDNÁVAT" in upper:
 
         verdict = "VYJEDNÁVAT"
-
         emoji = "🟡"
-
         css = "yellow"
-
 
     else:
 
         verdict = "KUPUJ"
-
         emoji = "🟢"
-
         css = "green"
 
 
@@ -535,21 +490,24 @@ if st.session_state.analysis:
 
     score = "?"
 
-
     for line in result.splitlines():
 
-        clean = line.strip().upper()
+        line_clean = line.strip()
 
+        if line_clean.startswith(
+            "**SKÓRE**"
+        ):
 
-        if clean.startswith(
+            continue
+
+        if line_clean.startswith(
             "SKÓRE:"
         ):
 
             score = (
-                line.split(
-                    ":",
-                    1
-                )[1].strip()
+                line_clean
+                .split(":", 1)[1]
+                .strip()
             )
 
             break
@@ -585,7 +543,7 @@ if st.session_state.analysis:
 
 
     # ========================================================
-    # CELÝ POSUDEK
+    # POSUDEK
     # ========================================================
 
     st.markdown(
@@ -599,9 +557,8 @@ if st.session_state.analysis:
 
 st.markdown("---")
 
-
 st.caption(
-    "AutoCheck CZ – experimentální MVP. "
-    "AI analýza nenahrazuje fyzickou kontrolu "
-    "vozidla, diagnostiku ani ověření VIN."
+    "AutoCheck CZ – MVP. "
+    "AI analýza nenahrazuje fyzickou kontrolu vozidla, "
+    "diagnostiku ani ověření VIN."
 )
