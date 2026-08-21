@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import re
 import time
+import pandas as pd
 
 st.set_page_config(page_title="AutoCheck CZ", page_icon="🚗", layout="wide")
 
@@ -80,11 +81,39 @@ Text inzerátu: "{clean_ad}"
 
 st.markdown("---")
 
-with st.expander("🔍 Zkontrolovat načtenou výbavu (Detailní přehled)", expanded=True):
-    st.info(st.session_state.parsed_equipment)
+st.markdown("### 🔍 Přehled načtených parametrů a výbavy")
+
+# Strukturované zobrazení pomocí tabulek (2 sloupce: Parametry vlevo, Výbava vpravo)
+col_t1, col_t2 = st.columns(2)
+
+with col_t1:
+    st.markdown("#### 🚗 Základní parametry")
+    df_params = pd.DataFrame([
+        {"Parametr": "Model", "Hodnota": st.session_state.form_model or "Zatím nezadáno"},
+        {"Parametr": "Rok výroby", "Hodnota": st.session_state.form_year},
+        {"Parametr": "Nájezd", "Hodnota": f"{st.session_state.form_km:,} km"},
+        {"Parametr": "Cena", "Hodnota": f"{st.session_state.form_price:,} Kč"},
+        {"Parametr": "Palivo", "Hodnota": st.session_state.form_fuel},
+        {"Parametr": "Převodovka", "Hodnota": st.session_state.form_gearbox}
+    ])
+    st.dataframe(df_params, use_container_width=True, hide_index=True)
+    
+with col_t2:
+    st.markdown("#### 🛡️ Výbava / Text inzerátu")
+    eq_val = st.session_state.parsed_equipment
+    if isinstance(eq_val, str) and "," in eq_val:
+        # Pokud je výbava oddělená čárkami, rozsekáme ji do přehledného seznamu v tabulce
+        items = [item.strip() for item in eq_val.split(",") if item.strip()]
+        df_eq = pd.DataFrame(items, columns=["Prvek výbavy"])
+        st.dataframe(df_eq, use_container_width=True, hide_index=True)
+    else:
+        # Fallback, pokud jde o surový text nebo delší poznámku
+        st.info(eq_val)
+
+st.markdown("---")
 
 with st.form("car_form"):
-    st.markdown("### 🚗 Parametry vozidla")
+    st.markdown("### ⚙️ Úprava parametrů před analýzou")
     c1, c2 = st.columns(2)
     model = c1.text_input("Značka a model", value=st.session_state.form_model)
     year = c2.number_input("Rok výroby", min_value=1990, max_value=2026, value=st.session_state.form_year)
