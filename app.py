@@ -72,7 +72,7 @@ if st.button("✨ Načíst data z textu"):
                 
                 st.success("Údaje z inzerátu úspěšně načteny do formuláře níže!")
             except Exception as e:
-                st.error(f"Nepodařilo se natáhnout data přes AI: {e}")
+                st.error(f"Detail chyby při načítání: {e}")
 
 st.markdown("---")
 
@@ -151,4 +151,4 @@ if submitted:
                     st.write(f"- {item}")
                     
             except Exception as e:
-                st.error(f"Nastala chyba při zpracování: {e}")
+                st.error(f"Detail chyby při analýze: {e}")
