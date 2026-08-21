@@ -39,7 +39,11 @@ def call_groq(prompt_text, max_tokens=3000):
     res_json = response.json()
     if "choices" not in res_json or len(res_json["choices"]) == 0:
         raise Exception("API vrátilo prázdnou odpověď.")
-    return res_json["choices"][0]["message"]["content"].strip()
+    
+    content = res_json["choices"][0]["message"].get("content", "").strip()
+    if not content:
+        raise Exception("Model vrátil prázdný textový řetězec.")
+    return content
 
 if st.button("✨ Načíst data z textu inzerátu"):
     if not api_key:
@@ -101,14 +105,4 @@ with st.expander("🔍 Zkontrolovat načtenou výbavu", expanded=True):
 st.markdown("### 🚗 Parametry vozidla")
 c1, c2 = st.columns(2)
 
-model = c1.text_input("Značka a model", value=st.session_state.form_model)
-year = c2.number_input("Rok výroby", min_value=1990, max_value=2026, value=int(st.session_state.form_year))
-km = c1.number_input("Nájezd (km)", min_value=0, value=int(st.session_state.form_km), step=1000)
-price = c2.number_input("Cena (Kč)", min_value=0, value=int(st.session_state.form_price), step=10000)
-
-f_opts = ["Benzín", "Nafta", "Hybrid", "Elektro"]
-curr_f = st.session_state.get("form_fuel", "Benzín")
-f_index = f_opts.index(curr_f) if curr_f in f_opts else 0
-fuel = c1.selectbox("Palivo", f_opts, index=f_index)
-
-g_opts = ["Manuální", "Automatická"]
+model = c1.text_input("Znač
