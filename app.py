@@ -8,9 +8,15 @@ st.set_page_config(page_title="AutoCheck CZ", page_icon="🚗")
 st.title("🚗 AutoCheck CZ")
 st.subheader("Chytrá analýza ojetiny s podporou AI")
 
-# Sidebar pro API klíč
-st.sidebar.markdown("### Groq API Klíč (Zdarma)")
-api_key = st.sidebar.text_input("Vlož svůj Groq API Key", type="password").strip()
+# Automatické načtení klíče ze Streamlit secrets (přežije F5 i restart)
+default_key = st.secrets.get("GROQ_API_KEY", "")
+
+st.sidebar.markdown("### Groq API Klíč")
+api_key = st.sidebar.text_input(
+    "Groq API Key (načteno ze secrets)", 
+    value=default_key, 
+    type="password"
+).strip()
 
 # --- SEKCE PRO NAČTENÍ Z TEXTU INZERÁTU ---
 st.markdown("### 📋 Automatické vyplnění z inzerátu")
@@ -45,7 +51,7 @@ def call_groq(prompt_text, max_tokens=1000):
 
 if st.button("✨ Načíst data z textu"):
     if not api_key:
-        st.error("Pro chytré načtení nejprve vlož Groq API klíč v levém panelu.")
+        st.error("Chybí Groq API klíč. Nastav ho v secrets na Streamlitu.")
     elif not ad_text_input.strip():
         st.warning("Vlož nejdřív text inzerátu.")
     else:
@@ -106,7 +112,7 @@ with st.form("car_form"):
 
 if submitted:
     if not api_key:
-        st.error("Prosím, vlož v levém panelu svůj Groq API klíč.")
+        st.error("Chybí Groq API klíč. Nastav ho v secrets na Streamlitu.")
     else:
         with st.spinner('AI analyzuje trh a staví verdikt...'):
             try:
