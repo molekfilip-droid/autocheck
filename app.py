@@ -3,7 +3,6 @@ import json
 import requests
 import re
 import time
-from bs4 import BeautifulSoup
 
 st.set_page_config(page_title="AutoCheck CZ", page_icon="🚗", layout="wide")
 
@@ -131,11 +130,10 @@ if submitted:
                 try:
                     resp_ddg = requests.get(search_url, headers=headers_ddg, timeout=10)
                     if resp_ddg.status_code == 200:
-                        soup = BeautifulSoup(resp_ddg.text, 'html.parser')
-                        results = []
-                        for a in soup.find_all('a', class_='result__snippet', limit=4):
-                            results.append(a.get_text())
-                        web_snippets = " ".join(results)
+                        # Jednoduché vytažení snippetů pomocí regulárního výrazu bez nutnosti BeautifulSoup
+                        snippets = re.findall(r'<a class="result__snippet"[^>]*>(.*?)</a>', resp_ddg.text, re.DOTALL)
+                        clean_snippets = [re.sub(r'<[^>]+>', '', s).strip() for s in snippets[:4]]
+                        web_snippets = " ".join(clean_snippets)
                 except Exception:
                     web_snippets = "Tržní data z webu nedostupná."
 
