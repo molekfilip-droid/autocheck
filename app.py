@@ -16,7 +16,7 @@ api_key = st.sidebar.text_input("Groq API Key", value=default_key, type="passwor
 st.markdown("### 📋 Automatické vyplnění z inzerátu")
 ad_text_input = st.text_area("Zkopíruj text inzerátu (popis, výbavu, parametry)...", placeholder="Sem vlož inzerát z Bazoše, Sauta apod...")
 
-if "form_model" not in st.session_state:
+if "form_model" not in sm.session_state if "form_model" in st.session_state else "form_model" not in st.session_state:
     st.session_state.form_model = ""
     st.session_state.form_year = 2020
     st.session_state.form_km = 0
@@ -47,15 +47,19 @@ if st.button("✨ Načíst data z textu inzerátu"):
     elif not ad_text_input.strip():
         st.warning("Vlož nejdřív text inzerátu.")
     else:
-        with st.spinner("AI vytahuje parametry a rozepisuje výbavu v češtině..."):
+        with st.spinner("AI čistí data a strukturuje výbavu..."):
             try:
                 clean_ad = ad_text_input.replace('"', "'").replace('\n', ' ').replace('\r', ' ')
-                p_text = f"""Z inzerátu extrahuj data a vrať PŘESNĚ tento formát oddělený středníky (žádný jiný text):
-model|rok|km|cena|palivo|prevodovka|strukturovaná_výbava_v_odrážkách_nebo_kategoriích
-Například: Škoda Octavia|2019|150000|350000|Nafta|Manuální|**Bezpečnost:** ABS, ESP<br>**Komfort:** Vyhřívané sedačky, klima<br>**Multimédia:** Navigace
+                p_text = f"""Jsi asistent pro parsování inzerátů. Z následujícího textu (který může obsahovat webový balast, tlačítka a menu) vyextrahuj čistá data a výbavu. Vrať PŘESNĚ tento formát oddělený středníky (žádný jiný úvodní ani závěrečný text):
+model|rok|km|cena|palivo|prevodovka|strukturovaná_výbava
+
+Pravidla pro výbavu: Odstraň veškerý marketingový odpad (garance, techniky, DPH texty atd.). Výbavu a vlastnosti rozděl do úhledných odrážek pomocí Markdownu (např. použij odrážky jako - **Bezpečnost:** ABS... - **Komfort:** Vyhřívaná sedadla...).
+
+Příklad: Škoda Octavia|2019|150000|350000|Nafta|Manuální|- **Bezpečnost:** ABS, ESP<br>- **Komfort:** Vyhřívané sedačky, automatická klima<br>- **Asistenti:** Tempomat, parkovací kamera
+
 Text inzerátu: "{clean_ad}"
 """
-                res = call_groq(p_text, 600)
+                res = call_groq(p_text, 800)
                 parts = res.split('|')
                 if len(parts) >= 6:
                     st.session_state.form_model = parts[0].strip()
@@ -70,19 +74,19 @@ Text inzerátu: "{clean_ad}"
                     st.session_state.form_gearbox = g_val if g_val in ["Manuální", "Automatická"] else "Manuální"
                     
                     if len(parts) > 6:
-                        # Ošetříme případné formátování a nahradíme HTML <br> na markdown odrážky pro Streamlit
-                        raw_eq = parts[6].strip().replace('<br>', '\n')
-                        st.session_state.parsed_equipment = raw_eq
-                    st.success("Data úspěšně načtena!")
+                        # Převedeme HTML <br> zpět na řádkování pro Markdown
+                        clean_eq = parts[6].strip().replace('<br>', '\n')
+                        st.session_state.parsed_equipment = clean_eq
+                    st.success("Data úspěšně načtena a vyčištěna!")
                 else:
                     raise Exception("Nepodařilo se správně parsovat odpověď.")
             except Exception as e:
                 st.session_state.parsed_equipment = ad_text_input
-                st.warning(f"Pozor: Parsování výbavy narazilo na problém ({e}), uložen surový text.")
+                st.warning(f"Pozor: Automatické parsování selhalo ({e}), uložen původní text.")
 
 st.markdown("---")
 
-with st.expander("🔍 Zkontrolovat načtenou výbavu (Strukturovaný přehled)", expanded=True):
+with st.expander("🔍 Zkontrolovat načtenou výbavu (Učesaný přehled)", expanded=True):
     st.markdown(st.session_state.parsed_equipment)
 
 with st.form("car_form"):
