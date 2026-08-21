@@ -1,5 +1,6 @@
 import streamlit as st
-import requests
+from google import genai
+from google.genai import types
 
 
 # ============================================================
@@ -12,9 +13,9 @@ st.set_page_config(
     layout="wide"
 )
 
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
-MODEL = "openai/gpt-oss-20b"
+# Aktuální Gemini model
+MODEL = "gemini-3-flash-preview"
 
 
 # ============================================================
@@ -65,15 +66,16 @@ st.markdown("""
     font-weight: 900;
 }
 
-.info-card {
-    padding: 18px;
-    border-radius: 14px;
-    background: #161b26;
-    border: 1px solid #252c39;
-}
-
 </style>
 """, unsafe_allow_html=True)
+
+
+# ============================================================
+# SESSION STATE
+# ============================================================
+
+if "analysis" not in st.session_state:
+    st.session_state.analysis = None
 
 
 # ============================================================
@@ -82,9 +84,10 @@ st.markdown("""
 
 def get_api_key():
 
+    # Nejprve zkusíme Streamlit secrets
     try:
         secret = st.secrets.get(
-            "GROQ_API_KEY",
+            "GEMINI_API_KEY",
             ""
         )
     except Exception:
@@ -93,6 +96,7 @@ def get_api_key():
     if secret:
         return secret.strip()
 
+    # Jinak vezmeme klíč ze sidebaru
     return st.session_state.get(
         "manual_api_key",
         ""
@@ -100,182 +104,84 @@ def get_api_key():
 
 
 # ============================================================
-# GROQ API
+# GEMINI
 # ============================================================
 
-def groq_call(prompt):
+def gemini_call(prompt):
 
     api_key = get_api_key()
 
     if not api_key:
         raise Exception(
-            "Chybí Groq API Key."
+            "Chybí Gemini API Key."
         )
 
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
+    try:
 
-    payload = {
-        "model": MODEL,
+        client = genai.Client(
+            api_key=api_key
+        )
 
-        "messages": [
-            {
-                "role": "system",
-                "content": (
+        response = client.models.generate_content(
+            model=MODEL,
+
+            contents=prompt,
+
+            config=types.GenerateContentConfig(
+                temperature=0.2,
+
+                max_output_tokens=1800,
+
+                system_instruction=(
                     "Jsi zkušený český expert "
                     "na ojeté automobily. "
-                    "Odpovídej vždy česky."
+                    "Odpovídej vždy česky, "
+                    "prakticky a konkrétně."
                 )
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-
-        "temperature": 0.2,
-
-        "max_tokens": 1600
-    }
-
-    response = requests.post(
-        GROQ_URL,
-        headers=headers,
-        json=payload,
-        timeout=90
-    )
-
-    # ========================================================
-    # RATE LIMIT
-    # ========================================================
-
-    if response.status_code == 429:
-
-        try:
-
-            error_data = response.json()
-
-            message = error_data.get(
-                "error",
-                {}
-            ).get(
-                "message",
-                response.text
             )
+        )
 
-        except Exception:
-
-            message = response.text
+    except Exception as e:
 
         raise Exception(
-            "Groq RATE LIMIT:\n\n"
-            + message
+            f"Gemini API chyba:\n\n{e}"
         )
 
     # ========================================================
-    # OSTATNÍ API CHYBY
-    # ========================================================
-
-    if response.status_code != 200:
-
-        raise Exception(
-            f"Groq API chyba {response.status_code}:\n\n"
-            f"{response.text[:3000]}"
-        )
-
-    # ========================================================
-    # JSON ODPOVĚĎ
+    # TEXT ODPOVĚDI
     # ========================================================
 
     try:
 
-        data = response.json()
+        text = response.text
 
     except Exception:
 
-        raise Exception(
-            "Groq nevrátil platný JSON.\n\n"
-            + response.text[:3000]
+        text = None
+
+    if text:
+
+        return text.strip()
+
+
+    # ========================================================
+    # DIAGNOSTIKA PRÁZDNÉ ODPOVĚDI
+    # ========================================================
+
+    details = []
+
+    try:
+
+        details.append(
+            f"Response: {response}"
         )
 
-    # ========================================================
-    # KONTROLA ODPOVĚDI
-    # ========================================================
-
-    if "choices" not in data:
-
-        raise Exception(
-            "Groq nevrátil žádné choices.\n\n"
-            "CELÁ ODPOVĚĎ:\n\n"
-            + str(data)
-        )
-
-    if len(data["choices"]) == 0:
-
-        raise Exception(
-            "Groq vrátil prázdné choices.\n\n"
-            "CELÁ ODPOVĚĎ:\n\n"
-            + str(data)
-        )
-
-    choice = data["choices"][0]
-
-    message = choice.get(
-        "message",
-        {}
-    )
-
-    # ========================================================
-    # STANDARDNÍ CONTENT
-    # ========================================================
-
-    content = message.get(
-        "content"
-    )
-
-    if content:
-
-        return content.strip()
-
-    # ========================================================
-    # NĚKTERÉ MODELY MOHOU VRÁTIT
-    # ODPOVĚĎ V JINÉM POLI
-    # ========================================================
-
-    reasoning = message.get(
-        "reasoning"
-    )
-
-    if reasoning:
-
-        return reasoning.strip()
-
-    # ========================================================
-    # NIC JSME NENAŠLI
-    # ========================================================
-
-    finish_reason = choice.get(
-        "finish_reason",
-        "neuvedeno"
-    )
-
-    usage = data.get(
-        "usage",
-        {}
-    )
+    except Exception:
+        pass
 
     raise Exception(
-        "Groq vrátil odpověď bez textu.\n\n"
-
-        f"Finish reason: {finish_reason}\n\n"
-
-        f"Usage: {usage}\n\n"
-
-        "CELÁ ODPOVĚĎ GROQU:\n\n"
-
-        + str(data)
+        "Gemini vrátil prázdnou odpověď.\n\n"
+        + "\n".join(details)
     )
 
 
@@ -286,40 +192,46 @@ def groq_call(prompt):
 def analyze_car(ad_text):
 
     prompt = f"""
-Analyzuj následující inzerát ojetého auta.
+Analyzuj následující inzerát ojetého automobilu.
 
 TEXT INZERÁTU:
 
 {ad_text}
 
-Jsi český expert na nákup ojetých automobilů.
+Jsi odborník na nákup ojetých aut v České republice.
 
-Úkolem je zjistit, zda je toto auto
-dobrá koupě.
+Cílem je poradit kupujícímu,
+zda má smysl toto konkrétní auto koupit.
 
-Nevymýšlej údaje.
-Pokud něco není uvedeno, napiš "neuvedeno".
+DŮLEŽITÁ PRAVIDLA:
 
-Rozlišuj údaje z inzerátu
-od typických problémů daného modelu.
+- Nevymýšlej údaje, které nejsou v inzerátu.
+- Pokud údaj není uvedený, napiš "neuvedeno".
+- Rozlišuj mezi tím, co tvrdí prodejce,
+  a tím, co lze považovat za ověřenou skutečnost.
+- U typických závad modelu jasně napiš,
+  že jde o typické riziko, nikoliv potvrzenou závadu.
+- Buď realistický.
+- Nehádej přesnou historii auta.
+- Zaměř se na praktické rozhodnutí kupujícího.
 
-Vytvoř praktický posudek.
+Použij následující strukturu:
 
-Použij tuto strukturu:
+# 🚗 VERDIKT
 
-# VERDIKT
-
-Vyber:
+Vyber pouze jednu možnost:
 
 KUPUJ
+
 VYJEDNÁVAT
+
 RUCE PRYČ
 
-# SKÓRE
+# ⭐ SKÓRE
 
-Napiš číslo 1 až 10.
+Hodnocení od 1 do 10.
 
-# AUTO
+# 🚘 IDENTIFIKACE AUTA
 
 Značka:
 Model:
@@ -328,67 +240,108 @@ Motor:
 Výkon:
 Palivo:
 Převodovka:
+Pohon:
+Karoserie:
 Nájezd:
 Cena:
 
-# VÝBAVA
+# 🛡️ VÝBAVA
 
-Vypiš důležitou výbavu.
+Vypiš nejdůležitější výbavu
+uvedenou v inzerátu.
 
-# CENA
+# 💰 CENA
 
 Uveď:
 
 Férová cena:
-Maximální doporučená cena:
+Doporučená maximální cena:
 Cena pro zahájení vyjednávání:
 
-Stručně vysvětli proč.
+Potom vysvětli,
+proč považuješ cenu za dobrou,
+průměrnou nebo vysokou.
 
-# TECHNIKA
+Pokud nemáš dost informací
+pro přesné určení ceny,
+výslovně to napiš.
 
-Zhodnoť motor, převodovku,
-pohon a jejich spolehlivost.
+# ⚙️ TECHNIKA
 
-# RIZIKA
+Zhodnoť:
 
-Uveď 5 až 8 nejdůležitějších
-rizik konkrétního auta.
+- motor
+- převodovku
+- pohon
+- spolehlivost
+- očekávané problémy
 
-U každého napiš,
-jak ho ověřit.
+Zaměř se na konkrétní motorizaci,
+pokud ji lze z inzerátu určit.
 
-# CHECKLIST
+# ⚠️ NEJVĚTŠÍ RIZIKA
+
+Uveď 5 až 8 nejdůležitějších rizik.
+
+U každého napiš:
+
+RIZIKO:
+JAK SE PROJEVUJE:
+JAK HO OVĚŘIT:
+
+# 🔍 CHECKLIST PROHLÍDKY
 
 Napiš 10 konkrétních věcí,
-které má kupující zkontrolovat
-před koupí.
+které má kupující před koupí zkontrolovat.
 
-# SERVIS
+Zahrň například:
 
-Odhadni servisní náklady
+- studený start
+- motor
+- převodovku
+- podvozek
+- brzdy
+- karoserii
+- pneumatiky
+- elektroniku
+- diagnostiku
+- zkušební jízdu
+
+Ale přizpůsob checklist konkrétnímu autu.
+
+# 🔧 SERVIS
+
+Odhadni potenciální servisní náklady
 na následující 2 roky.
 
 Uveď rozpětí v Kč.
 
-# VYJEDNÁVÁNÍ
+Rozděl je na:
+
+Běžný servis:
+Možné opravy:
+Rizikový scénář:
+
+# 🤝 VYJEDNÁVÁNÍ
 
 Napiš konkrétní argumenty,
-kterými může kupující srazit cenu.
+které může kupující použít
+ke snížení ceny.
 
-# ZÁVĚR
+# 🏁 ZÁVĚR
 
-Napiš krátké doporučení,
-zda má smysl auto jet prohlédnout,
-za jakých podmínek ho koupit
-a na co si dát největší pozor.
+Napiš stručně:
 
-Buď konkrétní.
-Neopakuj zbytečně text inzerátu.
+- zda bys na auto jel
+- co bys ověřil jako první
+- jakou cenu bys považoval za dobrou
+- za jakých podmínek bys auto koupil
+
+Buď praktický a konkrétní.
 """
 
 
-    return groq_call(
+    return gemini_call(
         prompt
     )
 
@@ -401,10 +354,11 @@ st.sidebar.title(
     "⚙️ AutoCheck CZ"
 )
 
+
 try:
 
     secret_key = st.secrets.get(
-        "GROQ_API_KEY",
+        "GEMINI_API_KEY",
         ""
     )
 
@@ -414,10 +368,11 @@ except Exception:
 
 
 api_key = st.sidebar.text_input(
-    "Groq API Key",
+    "Gemini API Key",
     value=secret_key,
     type="password"
 )
+
 
 st.session_state.manual_api_key = api_key
 
@@ -454,6 +409,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+
 st.markdown(
     '<div class="subtitle">'
     'Expertní analýza ojetého auta před koupí'
@@ -463,12 +419,13 @@ st.markdown(
 
 
 # ============================================================
-# TEXT INZERÁTU
+# INZERÁT
 # ============================================================
 
 st.markdown(
     "## 📋 Vlož inzerát"
 )
+
 
 ad_text = st.text_area(
     "Zkopíruj sem celý text inzerátu",
@@ -481,7 +438,7 @@ ad_text = st.text_area(
 
 
 # ============================================================
-# TLAČÍTKO
+# ANALÝZA
 # ============================================================
 
 if st.button(
@@ -493,7 +450,7 @@ if st.button(
     if not api_key:
 
         st.error(
-            "❌ Zadej Groq API Key."
+            "❌ Zadej Gemini API Key."
         )
 
     elif not ad_text.strip():
@@ -505,7 +462,7 @@ if st.button(
     else:
 
         with st.spinner(
-            "🤖 AI analyzuje automobil..."
+            "🤖 Gemini analyzuje automobil..."
         ):
 
             try:
@@ -514,9 +471,11 @@ if st.button(
                     ad_text
                 )
 
-                st.session_state[
-                    "analysis"
-                ] = result
+                st.session_state.analysis = result
+
+                st.success(
+                    "✅ Analýza dokončena."
+                )
 
             except Exception as e:
 
@@ -529,11 +488,9 @@ if st.button(
 # VÝSLEDEK
 # ============================================================
 
-if "analysis" in st.session_state:
+if st.session_state.analysis:
 
-    result = st.session_state[
-        "analysis"
-    ]
+    result = st.session_state.analysis
 
     st.markdown("---")
 
@@ -582,12 +539,6 @@ if "analysis" in st.session_state:
     for line in result.splitlines():
 
         clean = line.strip().upper()
-
-        if clean.startswith(
-            "# SKÓRE"
-        ):
-
-            continue
 
 
         if clean.startswith(
@@ -647,6 +598,7 @@ if "analysis" in st.session_state:
 # ============================================================
 
 st.markdown("---")
+
 
 st.caption(
     "AutoCheck CZ – experimentální MVP. "
