@@ -46,7 +46,7 @@ def call_groq(prompt_text, system_prompt="", max_tokens=2000, temperature=0.1):
     messages.append({"role": "user", "content": prompt_text})
     
     payload = {
-        "model": "llama-3.1-8b-instant",
+        "model": "llama-3.3-70b-versatile",
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens
