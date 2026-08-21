@@ -46,7 +46,9 @@ if st.button("✨ Načíst data z textu inzerátu"):
     else:
         with st.spinner("AI parsuje inzerát a detekuje výbavu..."):
             try:
-                clean_ad = ad_text_input.replace('"', "'").replace('\n', ' ')
+                # Ošetření textu, aby se předešlo rozbití JSONu
+                clean_ad = ad_text_input.replace('"', "'").replace('\n', ' ').replace('\r', ' ')
+                
                 p_text = f"""Jsi parser inzerátů. Z následujícího textu vrať POUZE validní JSON. Žádný markdown, žádný text kolem. Vše v češtině!
 Text inzerátu: "{clean_ad}"
 
@@ -60,11 +62,16 @@ Struktura JSON:
     "gearbox": "Manuální",
     "equipment_summary": "Stručný přehled výbavy"
 }}"""
-                res = call_groq(p_text, 600)
+                # Zvýšené tokeny pro bezpečné dokončení odpovědi
+                res = call_groq(p_text, 1500)
                 
                 res = re.sub(r'^```json\s*', '', res, flags=re.IGNORECASE)
                 res = re.sub(r'^```\s*', '', res, flags=re.IGNORECASE)
                 res = re.sub(r'\s*```$', '', res)
+                
+                match = re.search(r'\{.*\}', res, re.DOTALL)
+                if match:
+                    res = match.group(0)
                 
                 data = json.loads(res.strip())
                 st.session_state.form_model = str(data.get("model", ""))
