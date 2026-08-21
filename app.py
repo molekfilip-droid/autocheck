@@ -29,7 +29,7 @@ if "form_model" not in st.session_state:
 def call_groq(prompt_text, max_tokens=2500):
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     payload = {
-        "model": "openai/gpt-oss-20b",
+        "model": "llama-3.1-8b-instant",  # Spolehlivější model pro strukturovaná data
         "messages": [{"role": "user", "content": prompt_text}],
         "temperature": 0.1,
         "max_tokens": max_tokens
@@ -49,7 +49,7 @@ if st.button("✨ Načíst data z textu inzerátu"):
         with st.spinner("AI parsuje parametry a výbavu..."):
             try:
                 clean_ad = ad_text_input.replace('"', "'").replace('\n', ' ').replace('\r', ' ')
-                p_text = f"""Jsi JSON extraktor inzerátů. Z následujícího textu vyextrahuj data a vrať PŘESNĚ a POUZE validní JSON objekt (bez markdown bloků jako ```json ... ```, jen čistý JSON) v tomto formátu:
+                p_text = f"""Jsi JSON extraktor inzerátů. Z následujícího textu vyextrahuj data a vrať PŘESNĚ a POUZE validní JSON objekt. Neobaluj ho do žádného textu navíc, začni rovnou složenou závorkou {{ a skonči }}:
 {{
   "model": "Značka a model",
   "rok": 2020,
@@ -68,9 +68,13 @@ Pravidla:
 Text inzerátu: "{clean_ad}"
 """
                 res = call_groq(p_text, 1200)
-                # Ošetření pro případ, že by model přidal markdownové ohraničení
-                res_clean = re.sub(r'^```json\s*|\s*```$', '', res, flags=re.DOTALL).strip()
-                data = json.loads(res_clean)
+                
+                # Inteligentní vytažení čistého JSONu z odpovědi pomocí regulárního výrazu
+                json_match = re.search(r'\{.*\}', res, re.DOTALL)
+                if not json_match:
+                    raise Exception("Odpověď neobsahuje platný JSON formát.")
+                
+                data = json.loads(json_match.group(0))
                 
                 st.session_state.form_model = data.get("model", "")
                 st.session_state.form_year = int(data.get("rok", 2020))
