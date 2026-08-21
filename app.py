@@ -74,4 +74,86 @@ Struktura JSON:
                 st.error(f"Chyba při parsování: {e}")
 
 st.markdown("---")
-with st.expander("
+
+with st.expander("🔍 Zkontrolovat načtenou výbavu", expanded=True):
+    st.info(st.session_state.parsed_equipment)
+
+with st.form("car_form"):
+    st.markdown("### 🚗 Parametry vozidla")
+    c1, c2 = st.columns(2)
+    model = c1.text_input("Značka a model", value=st.session_state.form_model)
+    year = c2.number_input("Rok výroby", min_value=1990, max_value=2026, value=st.session_state.form_year)
+    km = c1.number_input("Nájezd (km)", min_value=0, value=st.session_state.form_km, step=1000)
+    price = c2.number_input("Cena (Kč)", min_value=0, value=st.session_state.form_price, step=10000)
+    
+    f_opts = ["Benzín", "Nafta", "Hybrid", "Elektro"]
+    f_idx = f_opts.index(st.session_state.form_fuel) if st.session_state.form_fuel in f_opts else 0
+    fuel = st.selectbox("Palivo", f_opts, index=f_idx)
+    
+    g_opts = ["Manuální", "Automatická"]
+    g_idx = g_opts.index(st.session_state.form_gearbox) if st.session_state.form_gearbox in g_opts else 0
+    gearbox = st.selectbox("Převodovka", g_opts, index=g_idx)
+    
+    submitted = st.form_submit_button("🚀 Spustit hloubkovou expertní analýzu")
+
+if submitted:
+    if not api_key:
+        st.error("Chybí Groq API klíč.")
+    elif not model.strip():
+        st.warning("Zadej značku a model vozidla.")
+    else:
+        with st.spinner("Špičkový mechanik prověřuje motor, převodovku, výbavu a trh..."):
+            try:
+                main_prompt = f"""Jsi hlavní šéfmechanik a soudní znalec v ČR s 25 lety praxe. Proveď detailní analýzu.
+Model: {model}, Rok: {year}, Nájezd: {km} km, Cena: {price} Kč, Palivo: {fuel}, Převodovka: {gearbox}
+Celý inzerát: {ad_text_input if ad_text_input.strip() else "Neuveden"}
+
+Pravidlo: Celá odpověď musí být 100% v češtině. Vrať POUZE validní JSON (bez ```json):
+{{
+    "verdict": "🟢 KUPUJ / VÝBORNÁ NABÍDKA" nebo "🟡 ZVÁŽIT RIZIKA / MÍRNĚ PŘEDRAŽENO" nebo "🔴 RUCE PRYČ / VELKÉ RIZIKO",
+    "verdict_summary": "1-2 věty shrnutí",
+    "fair_price_min": min cena číslo,
+    "fair_price_max": max cena číslo,
+    "price_evaluation": "Rozbor ceny vzhledem k trhu a výbavě",
+    "engine_gearbox_analysis": "Technický rozbor motoru a převodovky",
+    "common_failures": ["Bolístka 1", "Bolístka 2", "Bolístka 3"],
+    "servicing_cost_2years": "Odhad servisu na 2 roky s částkami v Kč",
+    "inspection_checklist": ["Kontrola 1", "Kontrola 2", "Kontrola 3", "Kontrola 4"],
+    "recommendation": "Závěrečné doporučení pro vyjednávání"
+}}"""
+                res = call_groq(main_prompt, 4000)
+                if res.startswith("```json"): res = res[7:]
+                if res.endswith("```"): res = res[:-3]
+                
+                data = json.loads(res.strip())
+                
+                st.markdown("---")
+                st.header(f"Výsledek auditu: {data['verdict']}")
+                st.info(data['verdict_summary'])
+                
+                ca, cb = st.columns(2)
+                with ca:
+                    st.metric("Odhadovaná férová cena", f"{data['fair_price_min']:,} - {data['fair_price_max']:,} Kč".replace(",", " "))
+                with cb:
+                    st.markdown("**🔧 Odhadovaný servis na 2 roky:**")
+                    st.success(data['servicing_cost_2years'])
+                
+                st.markdown("### 💰 Tržní hodnocení ceny")
+                st.write(data['price_evaluation'])
+                
+                st.markdown("### ⚙️ Technický stav: Motor a převodovka")
+                st.write(data['engine_gearbox_analysis'])
+                
+                st.markdown("### ⚠️ Typické slabiny a rizika")
+                for f in data['common_failures']:
+                    st.error(f"• {f}")
+                    
+                st.markdown("### 🔍 Inspekční checklist")
+                for chk in data['inspection_checklist']:
+                    st.warning(f"✓ {chk}")
+                    
+                st.markdown("### 🏁 Závěrečný verdikt")
+                st.success(data['recommendation'])
+                
+            except Exception as e:
+                st.error(f"Chyba při generování analýzy: {e}")
