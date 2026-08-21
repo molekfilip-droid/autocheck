@@ -28,6 +28,7 @@ st.markdown("""
 .block-container {
     max-width: 1400px;
     padding-top: 2rem;
+    padding-bottom: 4rem;
 }
 
 .big-title {
@@ -42,25 +43,14 @@ st.markdown("""
     margin-bottom: 30px;
 }
 
-/* INFO KARTY */
-
-.info-box {
-    padding: 18px;
-    border-radius: 12px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
-    margin-bottom: 12px;
+.section-divider {
+    margin-top: 35px;
+    margin-bottom: 20px;
 }
 
-.info-label {
-    color: #9aa5b8;
-    font-size: 13px;
-}
-
-.info-value {
-    font-size: 20px;
-    font-weight: 700;
-    margin-top: 4px;
+.small-note {
+    color: #8d98aa;
+    font-size: 14px;
 }
 
 </style>
@@ -68,25 +58,26 @@ st.markdown("""
 
 
 # ============================================================
-# API KEY
+# API
 # ============================================================
 
 def get_api_key():
 
     try:
+
         api_key = st.secrets["GEMINI_API_KEY"]
 
     except Exception:
 
         raise Exception(
-            "❌ Chybí GEMINI_API_KEY ve Streamlit Secrets.\n\n"
-            "Streamlit Cloud → Settings → Secrets\n\n"
-            'GEMINI_API_KEY = "tvůj_api_klíč"'
+            "Nastavení služby není kompletní. "
+            "Zkontroluj GEMINI_API_KEY ve Streamlit Secrets."
         )
 
     if not api_key:
+
         raise Exception(
-            "❌ GEMINI_API_KEY je prázdný."
+            "API klíč není nastaven."
         )
 
     return api_key.strip()
@@ -97,6 +88,7 @@ def get_api_key():
 # ============================================================
 
 ANALYSIS_SCHEMA = {
+
     "type": "object",
 
     "properties": {
@@ -119,21 +111,54 @@ ANALYSIS_SCHEMA = {
         },
 
         "car": {
+
             "type": "object",
 
             "properties": {
 
-                "brand": {"type": "string"},
-                "model": {"type": "string"},
-                "year": {"type": "string"},
-                "engine": {"type": "string"},
-                "power": {"type": "string"},
-                "fuel": {"type": "string"},
-                "gearbox": {"type": "string"},
-                "drive": {"type": "string"},
-                "body": {"type": "string"},
-                "mileage": {"type": "string"},
-                "price": {"type": "string"}
+                "brand": {
+                    "type": "string"
+                },
+
+                "model": {
+                    "type": "string"
+                },
+
+                "year": {
+                    "type": "string"
+                },
+
+                "engine": {
+                    "type": "string"
+                },
+
+                "power": {
+                    "type": "string"
+                },
+
+                "fuel": {
+                    "type": "string"
+                },
+
+                "gearbox": {
+                    "type": "string"
+                },
+
+                "drive": {
+                    "type": "string"
+                },
+
+                "body": {
+                    "type": "string"
+                },
+
+                "mileage": {
+                    "type": "string"
+                },
+
+                "price": {
+                    "type": "string"
+                }
 
             },
 
@@ -153,7 +178,9 @@ ANALYSIS_SCHEMA = {
         },
 
         "equipment": {
+
             "type": "array",
+
             "items": {
                 "type": "string"
             }
@@ -165,10 +192,21 @@ ANALYSIS_SCHEMA = {
 
             "properties": {
 
-                "fair_price": {"type": "string"},
-                "good_buy_price": {"type": "string"},
-                "max_price": {"type": "string"},
-                "explanation": {"type": "string"}
+                "fair_price": {
+                    "type": "string"
+                },
+
+                "good_buy_price": {
+                    "type": "string"
+                },
+
+                "max_price": {
+                    "type": "string"
+                },
+
+                "explanation": {
+                    "type": "string"
+                }
 
             },
 
@@ -186,12 +224,22 @@ ANALYSIS_SCHEMA = {
 
             "properties": {
 
-                "engine": {"type": "string"},
-                "gearbox": {"type": "string"},
-                "reliability": {"type": "string"},
+                "engine": {
+                    "type": "string"
+                },
+
+                "gearbox": {
+                    "type": "string"
+                },
+
+                "reliability": {
+                    "type": "string"
+                },
 
                 "important_points": {
+
                     "type": "array",
+
                     "items": {
                         "type": "string"
                     }
@@ -217,10 +265,21 @@ ANALYSIS_SCHEMA = {
 
                 "properties": {
 
-                    "risk": {"type": "string"},
-                    "symptoms": {"type": "string"},
-                    "verification": {"type": "string"},
-                    "repair_cost": {"type": "string"}
+                    "risk": {
+                        "type": "string"
+                    },
+
+                    "symptoms": {
+                        "type": "string"
+                    },
+
+                    "verification": {
+                        "type": "string"
+                    },
+
+                    "repair_cost": {
+                        "type": "string"
+                    }
 
                 },
 
@@ -243,8 +302,13 @@ ANALYSIS_SCHEMA = {
 
                 "properties": {
 
-                    "item": {"type": "string"},
-                    "why": {"type": "string"}
+                    "item": {
+                        "type": "string"
+                    },
+
+                    "why": {
+                        "type": "string"
+                    }
 
                 },
 
@@ -261,10 +325,21 @@ ANALYSIS_SCHEMA = {
 
             "properties": {
 
-                "normal": {"type": "string"},
-                "likely_repairs": {"type": "string"},
-                "worst_case": {"type": "string"},
-                "two_year_total": {"type": "string"}
+                "normal": {
+                    "type": "string"
+                },
+
+                "likely_repairs": {
+                    "type": "string"
+                },
+
+                "worst_case": {
+                    "type": "string"
+                },
+
+                "two_year_total": {
+                    "type": "string"
+                }
 
             },
 
@@ -309,7 +384,7 @@ ANALYSIS_SCHEMA = {
 
 
 # ============================================================
-# GEMINI ANALÝZA
+# PROFESIONÁLNÍ ANALÝZA
 # ============================================================
 
 def analyze_car(ad_text):
@@ -321,91 +396,84 @@ def analyze_car(ad_text):
     )
 
     prompt = f"""
-Jsi seniorní český expert na ojeté automobily.
+Jsi profesionální automobilový analytik specializující se
+na nákup ojetých vozidel v České republice.
 
-Analyzuj KONKRÉTNÍ automobil podle tohoto inzerátu:
+Proveď důkladný nákupní audit automobilu podle textu inzerátu.
 
 ==================================================
-INZERÁT
+TEXT INZERÁTU
 ==================================================
 
 {ad_text}
 
 ==================================================
-CÍL ANALÝZY
+HLAVNÍ ÚKOL
 ==================================================
 
-Kupující chce zjistit:
+Cílem je dát kupujícímu co nejpraktičtější odpověď:
 
-1. Zda je auto dobrá koupě.
-2. Zda odpovídá cena.
-3. Jaká jsou technická rizika.
-4. Co musí při prohlídce zkontrolovat.
-5. Kolik může stát servis.
-6. Jaká je maximální rozumná nákupní cena.
-7. Jakými argumenty lze vyjednávat.
+- Je toto auto dobrá koupě?
+- Je cena odpovídající?
+- Jaká je férová cena?
+- Jaká cena by byla opravdu dobrý nákup?
+- Jaké jsou největší technické hrozby?
+- Co přesně kontrolovat před koupí?
+- Kolik může stát servis během dalších 2 let?
+- Jaké argumenty použít při vyjednávání?
 
 ==================================================
-DŮLEŽITÁ PRAVIDLA
+DŮLEŽITÉ
 ==================================================
 
-NEVYMÝŠLEJ si údaje o konkrétním vozidle.
+Nevymýšlej si údaje o konkrétním vozidle.
 
-Pokud údaj není v inzerátu znám:
+Pokud není údaj znám:
 
 "neuvedeno"
 
-Rozlišuj mezi:
+Jasně rozlišuj:
 
-- údajem přímo uvedeným v inzerátu
-- typickou vlastností/problémem daného modelu
-- věcí, kterou je nutné před koupí ověřit
+1. informace přímo z inzerátu
+2. typické vlastnosti daného modelu
+3. skutečnosti, které musí kupující ověřit
 
-Pokud si nejsi jistý, přiznej nejistotu.
-
-Buď konkrétní.
-
-Nepoužívej obecné rady typu:
-
-"Nechte auto zkontrolovat."
-
-Místo toho napiš přesně CO kontrolovat a PROČ.
+Pokud je něco pouze pravděpodobné,
+neprezentuj to jako jistotu.
 
 ==================================================
-VERDIKT
+NÁKUPNÍ VERDIKT
 ==================================================
 
-KUPUJ:
+KUPUJ
 
-Auto je za danou cenu velmi zajímavé
-a rizika jsou přijatelná.
+Použij pokud jde o velmi zajímavou nabídku
+a rizika jsou přiměřená.
 
-VYJEDNÁVAT:
+VYJEDNÁVAT
 
-Auto může být dobrá koupě,
-ale cena nebo některá rizika vyžadují vyjednávání
-nebo kontrolu před koupí.
+Použij pokud může být auto dobrá koupě,
+ale cena nebo určitá rizika vyžadují vyjednávání.
 
-RUCE PRYČ:
+RUCE PRYČ
 
-Auto je výrazně předražené,
-má zásadní riziko nebo je celkově špatná koupě.
+Použij pokud je auto výrazně předražené,
+má zásadní rizika nebo je celkově nevýhodné.
 
 Skóre:
 
 1 = velmi špatná koupě
-
 10 = mimořádně dobrá koupě
 
 ==================================================
-CENA
+HODNOCENÍ CENY
 ==================================================
 
-Odhadni:
+Stanov:
 
-- férovou cenu
-- dobrou nákupní cenu
-- maximální cenu, kterou bys osobně zaplatil
+- Férovou cenu
+- Dobrou nákupní cenu
+- Maximální rozumnou cenu
 
 Zohledni:
 
@@ -417,18 +485,19 @@ Zohledni:
 - výbavu
 - karoserii
 - pohon
-- stav
-- cenu uvedenou v inzerátu
+- stáří
+- cenu vozidla
 
-Nedávej falešnou přesnost.
+Pokud je k dispozici cena bez DPH i s DPH,
+zachovej obě hodnoty.
 
 ==================================================
-MOTOR A PŘEVODOVKA
+TECHNICKÁ ANALÝZA
 ==================================================
 
-Analyzuj konkrétní motorizaci a převodovku.
+Analyzuj konkrétní motor a převodovku.
 
-Zaměř se pouze na relevantní věci:
+Zaměř se na relevantní problémy:
 
 - rozvody
 - turbo
@@ -445,6 +514,8 @@ Zaměř se pouze na relevantní věci:
 - podvozek
 - elektroniku
 
+Neuváděj nesouvisející problémy.
+
 ==================================================
 RIZIKA
 ==================================================
@@ -453,18 +524,19 @@ Uveď maximálně 8 nejdůležitějších rizik.
 
 U každého:
 
-1. Co je problém.
-2. Jak se projevuje.
-3. Jak ho ověřit.
-4. Kolik může stát oprava.
+- problém
+- typické projevy
+- způsob ověření
+- orientační cena opravy
 
 ==================================================
-CHECKLIST
+KONTROLNÍ CHECKLIST
 ==================================================
 
-Vytvoř 10 konkrétních bodů kontroly.
+Vytvoř 10 konkrétních bodů,
+které může kupující použít přímo při prohlídce.
 
-Checklist musí být použitelný přímo při návštěvě auta.
+Ne obecné rady.
 
 ==================================================
 SERVIS
@@ -475,44 +547,45 @@ Odhadni:
 - běžný servis
 - pravděpodobné opravy
 - špatný scénář
-- celkové náklady na 2 roky
+- celkové náklady za 2 roky
 
-Vše uváděj v Kč.
+Uváděj částky v Kč.
 
 ==================================================
 VYJEDNÁVÁNÍ
 ==================================================
 
-Napiš konkrétní argumenty,
-které může kupující použít proti prodejci.
+Vytvoř konkrétní argumenty,
+kterými může kupující tlačit cenu dolů.
 
-Pokud například chybí doložený servis,
-uveď jaký servis chybí a přibližnou hodnotu.
+Pokud je například blížící se servis,
+uveď jeho přibližnou hodnotu.
 
 ==================================================
-ZÁVĚR
+KONEČNÉ DOPORUČENÍ
 ==================================================
 
 Jednoznačně napiš:
 
-- koupil bych / nekoupil bych
+- zda bys auto koupil
 - za jakou cenu
 - proč
 
 ==================================================
-VÝSTUP
+FORMÁT
 ==================================================
 
-Vrať POUZE validní JSON podle přiloženého schématu.
+Vrať pouze validní JSON.
 
 Žádný Markdown.
 
-Žádný HTML.
+Žádné HTML.
 
 Žádný text před JSON.
 
 Žádný text za JSON.
 """
+
 
     try:
 
@@ -534,20 +607,15 @@ Vrať POUZE validní JSON podle přiloženého schématu.
 
     except Exception as e:
 
-        error_text = str(e)
+        error = str(e)
 
         if (
-            "503" in error_text
+            "503" in error
             or
-            "UNAVAILABLE" in error_text
+            "UNAVAILABLE" in error
             or
-            "high demand" in error_text.lower()
+            "high demand" in error.lower()
         ):
-
-            st.warning(
-                "Gemini je momentálně přetížený. "
-                "Zkouším druhý pokus..."
-            )
 
             time.sleep(8)
 
@@ -572,9 +640,9 @@ Vrať POUZE validní JSON podle přiloženého schématu.
             except Exception as e2:
 
                 raise Exception(
-                    "Gemini je momentálně nedostupný.\n\n"
-                    f"První pokus:\n{error_text}\n\n"
-                    f"Druhý pokus:\n{e2}"
+                    "Služba je momentálně dočasně nedostupná. "
+                    "Zkus analýzu spustit znovu za chvíli.\n\n"
+                    f"Technická informace: {e2}"
                 )
 
         else:
@@ -585,7 +653,7 @@ Vrať POUZE validní JSON podle přiloženého schématu.
     if not response.text:
 
         raise Exception(
-            "Gemini vrátil prázdnou odpověď."
+            "Nepodařilo se získat výsledek analýzy."
         )
 
 
@@ -598,34 +666,8 @@ Vrať POUZE validní JSON podle přiloženého schématu.
     except Exception:
 
         raise Exception(
-            "Gemini vrátil neplatný JSON:\n\n"
-            + response.text[:5000]
+            "Výsledek analýzy se nepodařilo zpracovat."
         )
-
-
-# ============================================================
-# INFO KARTA
-# ============================================================
-
-def metric(label, value):
-
-    if value is None:
-        value = "neuvedeno"
-
-    st.markdown(
-        f"""
-        <div class="info-box">
-            <div class="info-label">
-                {label}
-            </div>
-
-            <div class="info-value">
-                {value}
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
 
 
 # ============================================================
@@ -639,9 +681,13 @@ st.markdown(
 
 st.markdown(
     '<div class="subtitle">'
-    'Expertní analýza ojetého automobilu'
+    'Profesionální nákupní audit ojetého automobilu'
     '</div>',
     unsafe_allow_html=True
+)
+
+st.caption(
+    "Technická rizika • Cenová analýza • Servisní náklady • Nákupní taktika"
 )
 
 
@@ -650,55 +696,72 @@ st.markdown(
 # ============================================================
 
 st.sidebar.title(
-    "⚙️ AutoCheck CZ"
+    "AutoCheck CZ"
 )
 
 st.sidebar.success(
-    "Gemini API aktivní"
+    "Analytický systém připraven"
 )
 
 st.sidebar.markdown("---")
 
-st.sidebar.write(
-    "Použitý model:"
+st.sidebar.markdown(
+    "**Co získáš:**"
 )
 
-st.sidebar.code(
-    MODEL
+st.sidebar.markdown(
+    """
+    ✓ Nákupní verdikt
+
+    ✓ Hodnocení ceny
+
+    ✓ Technická rizika
+
+    ✓ Kontrolní checklist
+
+    ✓ Odhad servisu
+
+    ✓ Argumenty pro vyjednávání
+    """
 )
 
 st.sidebar.markdown("---")
 
 st.sidebar.caption(
-    "AI analýza ojetých automobilů"
+    "Profesionální předkupní analýza"
 )
 
 
 # ============================================================
-# TEXT INZERÁTU
+# INZERÁT
 # ============================================================
 
 st.markdown(
-    "## 📋 Vlož text inzerátu"
+    "## 📋 Vstupní data"
+)
+
+st.write(
+    "Vlož kompletní text nabídky. "
+    "Čím více údajů inzerát obsahuje, tím přesnější bude posudek."
 )
 
 ad_text = st.text_area(
-    "Celý text inzerátu",
+    "Text inzerátu",
     height=400,
-
     placeholder=(
         "Zkopíruj sem celý text inzerátu "
-        "z Bazoše, Sauto, TipCars, Mobile.de..."
-    )
+        "z Bazoše, Sauto, TipCars, Mobile.de apod."
+    ),
+    label_visibility="collapsed"
 )
 
 
 # ============================================================
-# SPUŠTĚNÍ ANALÝZY
+# ANALÝZA
 # ============================================================
 
 if st.button(
-    "🚀 SPUSTIT ANALÝZU",
+    "🔎 VYTVOŘIT PROFESIONÁLNÍ POSUDEK",
     type="primary",
     use_container_width=True
 ):
@@ -706,13 +769,13 @@ if st.button(
     if not ad_text.strip():
 
         st.warning(
-            "Nejdříve vlož text inzerátu."
+            "Nejdříve vlož text automobilového inzerátu."
         )
 
     else:
 
         with st.spinner(
-            "🔎 Gemini analyzuje automobil..."
+            "Probíhá odborné vyhodnocení vozidla..."
         ):
 
             try:
@@ -763,8 +826,10 @@ if "analysis" in st.session_state:
     )
 
 
+    st.markdown("---")
+
     st.markdown(
-        "## 🏁 NÁKUPNÍ VERDIKT"
+        "## 🏁 Nákupní verdikt"
     )
 
 
@@ -800,6 +865,8 @@ if "analysis" in st.session_state:
     # IDENTIFIKACE
     # ========================================================
 
+    st.markdown("---")
+
     st.markdown(
         "## 🚘 Identifikace vozidla"
     )
@@ -815,82 +882,83 @@ if "analysis" in st.session_state:
 
     with c1:
 
-        metric(
+        st.metric(
             "Model",
             (
                 car.get("brand", "")
                 + " "
                 + car.get("model", "")
             ).strip()
+            or "Neuvedeno"
         )
 
-        metric(
+        st.metric(
             "Motor",
             car.get(
                 "engine",
-                "neuvedeno"
+                "Neuvedeno"
             )
         )
 
-        metric(
+        st.metric(
             "Palivo",
             car.get(
                 "fuel",
-                "neuvedeno"
+                "Neuvedeno"
             )
         )
 
 
     with c2:
 
-        metric(
+        st.metric(
             "Rok",
             car.get(
                 "year",
-                "neuvedeno"
+                "Neuvedeno"
             )
         )
 
-        metric(
+        st.metric(
             "Převodovka",
             car.get(
                 "gearbox",
-                "neuvedeno"
+                "Neuvedeno"
             )
         )
 
-        metric(
+        st.metric(
             "Nájezd",
             car.get(
                 "mileage",
-                "neuvedeno"
+                "Neuvedeno"
             )
         )
 
 
     with c3:
 
-        metric(
+        st.metric(
             "Cena",
             car.get(
                 "price",
-                "neuvedeno"
+                "Neuvedeno"
             )
         )
 
-        metric(
+        st.metric(
             "Výkon",
             car.get(
                 "power",
-                "neuvedeno"
+                "Neuvedeno"
             )
         )
 
-        metric(
+        st.metric(
             "Pohon",
             car.get(
                 "drive",
-                "neuvedeno"
+                "Neuvedeno"
             )
         )
 
@@ -899,9 +967,12 @@ if "analysis" in st.session_state:
     # CENA
     # ========================================================
 
+    st.markdown("---")
+
     st.markdown(
         "## 💰 Hodnocení ceny"
     )
+
 
     price = data.get(
         "price_analysis",
@@ -914,38 +985,42 @@ if "analysis" in st.session_state:
 
     with p1:
 
-        metric(
+        st.metric(
             "Férová cena",
             price.get(
                 "fair_price",
-                "neuvedeno"
+                "Neuvedeno"
             )
         )
 
 
     with p2:
 
-        metric(
+        st.metric(
             "Dobrá nákupní cena",
             price.get(
                 "good_buy_price",
-                "neuvedeno"
+                "Neuvedeno"
             )
         )
 
 
     with p3:
 
-        metric(
+        st.metric(
             "Maximální cena",
             price.get(
                 "max_price",
-                "neuvedeno"
+                "Neuvedeno"
             )
         )
 
 
-    st.info(
+    st.markdown(
+        "### Cenový komentář"
+    )
+
+    st.write(
         price.get(
             "explanation",
             ""
@@ -957,9 +1032,12 @@ if "analysis" in st.session_state:
     # VÝBAVA
     # ========================================================
 
+    st.markdown("---")
+
     st.markdown(
         "## 🛡️ Výbava"
     )
+
 
     equipment = data.get(
         "equipment",
@@ -975,15 +1053,21 @@ if "analysis" in st.session_state:
             equipment
         ):
 
-            with (
-                col1
-                if i % 2 == 0
-                else col2
-            ):
+            if i % 2 == 0:
 
-                st.markdown(
-                    f"✓ {item}"
-                )
+                with col1:
+
+                    st.markdown(
+                        f"✓ {item}"
+                    )
+
+            else:
+
+                with col2:
+
+                    st.markdown(
+                        f"✓ {item}"
+                    )
 
     else:
 
@@ -996,9 +1080,12 @@ if "analysis" in st.session_state:
     # TECHNICKÁ ANALÝZA
     # ========================================================
 
+    st.markdown("---")
+
     st.markdown(
         "## ⚙️ Technická analýza"
     )
+
 
     technical = data.get(
         "technical",
@@ -1043,7 +1130,7 @@ if "analysis" in st.session_state:
 
 
     st.markdown(
-        "### 🔎 Co ověřit"
+        "### 🔎 Klíčové body kontroly"
     )
 
 
@@ -1061,9 +1148,12 @@ if "analysis" in st.session_state:
     # RIZIKA
     # ========================================================
 
+    st.markdown("---")
+
     st.markdown(
         "## ⚠️ Největší rizika"
     )
+
 
     risks = data.get(
         "risks",
@@ -1076,12 +1166,17 @@ if "analysis" in st.session_state:
         start=1
     ):
 
+        title = risk.get(
+            "risk",
+            "Riziko"
+        )
+
         with st.expander(
-            f"{i}. {risk.get('risk', 'Riziko')}"
+            f"{i}. {title}"
         ):
 
             st.markdown(
-                "**Jak se projevuje**"
+                "**Jak se problém projevuje**"
             )
 
             st.write(
@@ -1091,9 +1186,8 @@ if "analysis" in st.session_state:
                 )
             )
 
-
             st.markdown(
-                "**Jak ověřit**"
+                "**Jak ho ověřit**"
             )
 
             st.write(
@@ -1103,9 +1197,8 @@ if "analysis" in st.session_state:
                 )
             )
 
-
             st.markdown(
-                "**Cena opravy**"
+                "**Orientační cena opravy**"
             )
 
             st.write(
@@ -1120,9 +1213,17 @@ if "analysis" in st.session_state:
     # CHECKLIST
     # ========================================================
 
+    st.markdown("---")
+
     st.markdown(
-        "## 🔍 Checklist při prohlídce"
+        "## 🔍 Checklist před koupí"
     )
+
+    st.caption(
+        "Praktický seznam bodů, které je vhodné projít "
+        "přímo při prohlídce vozidla."
+    )
+
 
     checklist = data.get(
         "checklist",
@@ -1135,25 +1236,32 @@ if "analysis" in st.session_state:
         start=1
     ):
 
-        st.markdown(
-            f"### {i}. {item.get('item', '')}"
-        )
+        with st.expander(
+            f"{i}. {item.get('item', '')}"
+        ):
 
-        st.write(
-            item.get(
-                "why",
-                ""
+            st.write(
+                item.get(
+                    "why",
+                    ""
+                )
             )
-        )
 
 
     # ========================================================
     # SERVIS
     # ========================================================
 
+    st.markdown("---")
+
     st.markdown(
-        "## 🔧 Odhad servisu na 2 roky"
+        "## 🔧 Odhad provozních nákladů"
     )
+
+    st.caption(
+        "Orientační očekávané náklady během následujících 2 let."
+    )
+
 
     service = data.get(
         "service",
@@ -1166,44 +1274,44 @@ if "analysis" in st.session_state:
 
     with s1:
 
-        metric(
+        st.metric(
             "Běžný servis",
             service.get(
                 "normal",
-                "neuvedeno"
+                "Neuvedeno"
             )
         )
 
 
     with s2:
 
-        metric(
+        st.metric(
             "Pravděpodobné opravy",
             service.get(
                 "likely_repairs",
-                "neuvedeno"
+                "Neuvedeno"
             )
         )
 
 
     with s3:
 
-        metric(
+        st.metric(
             "Špatný scénář",
             service.get(
                 "worst_case",
-                "neuvedeno"
+                "Neuvedeno"
             )
         )
 
 
     with s4:
 
-        metric(
-            "Celkem 2 roky",
+        st.metric(
+            "Celkem / 2 roky",
             service.get(
                 "two_year_total",
-                "neuvedeno"
+                "Neuvedeno"
             )
         )
 
@@ -1212,9 +1320,16 @@ if "analysis" in st.session_state:
     # VYJEDNÁVÁNÍ
     # ========================================================
 
+    st.markdown("---")
+
     st.markdown(
-        "## 🤝 Jak vyjednávat cenu"
+        "## 🤝 Nákupní taktika"
     )
+
+    st.caption(
+        "Konkrétní argumenty, které lze použít při jednání s prodejcem."
+    )
+
 
     negotiation = data.get(
         "negotiation",
@@ -1222,26 +1337,61 @@ if "analysis" in st.session_state:
     )
 
 
-    for item in negotiation:
+    for i, item in enumerate(
+        negotiation,
+        start=1
+    ):
 
         st.markdown(
-            f"• {item}"
+            f"**{i}.** {item}"
         )
 
 
     # ========================================================
-    # KONEČNÝ ZÁVĚR
+    # ZÁVĚR
     # ========================================================
+
+    st.markdown("---")
 
     st.markdown(
-        "## 🏁 Konečné doporučení"
+        "## 🏆 Finální doporučení"
     )
 
+
+    conclusion = data.get(
+        "conclusion",
+        ""
+    )
+
+
     st.info(
-        data.get(
-            "conclusion",
-            ""
+        conclusion
+    )
+
+
+    # ========================================================
+    # HODNOCENÍ
+    # ========================================================
+
+    st.markdown("---")
+
+    st.markdown(
+        "### Celkové hodnocení"
+    )
+
+
+    st.progress(
+        max(
+            0,
+            min(
+                int(score) / 10,
+                1
+            )
         )
+    )
+
+    st.write(
+        f"**Celkové skóre: {score}/10**"
     )
 
 
@@ -1252,7 +1402,11 @@ if "analysis" in st.session_state:
 st.markdown("---")
 
 st.caption(
-    "AutoCheck CZ MVP • "
-    "AI analýza nenahrazuje fyzickou kontrolu, "
-    "diagnostiku ani ověření VIN."
+    "AutoCheck CZ • Profesionální předkupní automobilový audit"
+)
+
+st.caption(
+    "Výsledek slouží jako podpůrný nástroj při rozhodování "
+    "a nenahrazuje fyzickou prohlídku, diagnostiku ani "
+    "ověření historie vozidla."
 )
