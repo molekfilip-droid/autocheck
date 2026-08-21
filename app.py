@@ -50,7 +50,7 @@ if st.button("✨ Načíst data z textu inzerátu"):
         with st.spinner("AI parsuje inzerát a detekuje výbavu..."):
             try:
                 clean_ad = ad_text_input.replace('"', "'").replace('\n', ' ')[:3000]
-                p_text = f"""Jsi přísný JSON parser. Z následujícího textu inzerátu extrahuj data a vrať POUZE a JENOM validní JSON objekt. Žádný úvodní text, žádný markdown (nepoužívej ```json ... ```), začni rovnou znakem {{ a konči }}.
+                p_text = f"""Jsi přísný JSON parser. Z následujícího textu inzerátu extrahuj data a vrať POUZE a JENOM validní JSON objekt. Žádný úvodní text, žádný markdown, začni rovnou znakem {{ a konči }}.
 
 Text inzerátu: "{clean_ad}"
 
@@ -65,8 +65,6 @@ Požadovaný formát JSON:
     "equipment_summary": "Kompletní detailní přehled prvků výbavy"
 }}"""
                 res = call_groq(p_text, 800)
-                
-                # Vyčištění odpovědi od případných markdown bloků
                 res_clean = re.sub(r'^```json\s*', '', res, flags=re.IGNORECASE)
                 res_clean = re.sub(r'^```\s*', '', res_clean)
                 res_clean = re.sub(r'\s*```$', '', res_clean).strip()
@@ -92,7 +90,7 @@ Požadovaný formát JSON:
             except Exception as e:
                 st.error(f"Chyba při parsování: {e}")
                 if 'res' in locals():
-                    with st.expander("🔍 Zobrazit surovou odpověď od AI pro diagnózu"):
+                    with st.expander("🔍 Zobrazit surovou odpověď"):
                         st.code(res)
 
 st.markdown("---")
@@ -104,4 +102,13 @@ st.markdown("### 🚗 Parametry vozidla")
 c1, c2 = st.columns(2)
 
 model = c1.text_input("Značka a model", value=st.session_state.form_model)
-year = c2.number_input("Rok výroby", min_value=1990, max_value=2026
+year = c2.number_input("Rok výroby", min_value=1990, max_value=2026, value=int(st.session_state.form_year))
+km = c1.number_input("Nájezd (km)", min_value=0, value=int(st.session_state.form_km), step=1000)
+price = c2.number_input("Cena (Kč)", min_value=0, value=int(st.session_state.form_price), step=10000)
+
+f_opts = ["Benzín", "Nafta", "Hybrid", "Elektro"]
+curr_f = st.session_state.get("form_fuel", "Benzín")
+f_index = f_opts.index(curr_f) if curr_f in f_opts else 0
+fuel = c1.selectbox("Palivo", f_opts, index=f_index)
+
+g
