@@ -1,6 +1,7 @@
 import streamlit as st
 import json
 import requests
+import re
 
 st.set_page_config(page_title="AutoCheck CZ", page_icon="🚗", layout="wide")
 
@@ -29,7 +30,7 @@ def call_groq(prompt_text, max_tokens=3000):
     payload = {
         "model": "openai/gpt-oss-20b",
         "messages": [{"role": "user", "content": prompt_text}],
-        "temperature": 0.3,
+        "temperature": 0.2,
         "max_tokens": max_tokens
     }
     response = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=30)
@@ -45,33 +46,44 @@ if st.button("✨ Načíst data z textu inzerátu"):
     else:
         with st.spinner("AI parsuje inzerát a detekuje výbavu..."):
             try:
-                p_text = f"""Jsi parser inzerátů. Z textu vrať POUZE validní JSON (bez ```json). Vše v češtině!
-Text: "{ad_text_input}"
+                # Ošetření textu inzerátu proti rozbití JSON promptu
+                clean_ad = ad_text_input.replace('"', "'").replace('\n', ' ')
+                p_text = f"""Jsi parser inzerátů. Z následujícího textu vrať POUZE validní JSON. Žádný markdown, žádný text kolem. Vše v češtině!
+Text inzerátu: "{clean_ad}"
+
 Struktura JSON:
 {{
     "model": "značka a model",
-    "year": rok výroby číslo,
-    "km": nájezd číslo,
-    "price": cena číslo,
-    "fuel": "Benzín" nebo "Nafta" nebo "Hybrid" nebo "Elektro",
-    "gearbox": "Manuální" nebo "Automatická",
+    "year": 2020,
+    "km": 0,
+    "price": 0,
+    "fuel": "Benzín",
+    "gearbox": "Manuální",
     "equipment_summary": "Stručný přehled výbavy"
 }}"""
-                res = call_groq(p_text, 500)
-                if res.startswith("```json"): res = res[7:]
-                if res.endswith("```"): res = res[:-3]
+                res = call_groq(p_text, 600)
+                
+                # Vyčištění odpovědi od případných markdown bloků
+                res = re.sub(r'^```json\s*', '', res, flags=re.IGNORECASE)
+                res = re.sub(r'^```\s*', '', res, flags=re.IGNORECASE)
+                res = re.sub(r'\s*```$', '', res)
                 
                 data = json.loads(res.strip())
-                st.session_state.form_model = data.get("model", "")
+                st.session_state.form_model = str(data.get("model", ""))
                 st.session_state.form_year = int(data.get("year", 2020))
                 st.session_state.form_km = int(data.get("km", 0))
                 st.session_state.form_price = int(data.get("price", 0))
-                st.session_state.form_fuel = data.get("fuel", "Benzín")
-                st.session_state.form_gearbox = data.get("gearbox", "Manuální")
-                st.session_state.parsed_equipment = data.get("equipment_summary", "Bez popisu výbavy.")
+                
+                f_val = str(data.get("fuel", "Benzín"))
+                st.session_state.form_fuel = f_val if f_val in ["Benzín", "Nafta", "Hybrid", "Elektro"] else "Benzín"
+                
+                g_val = str(data.get("gearbox", "Manuální"))
+                st.session_state.form_gearbox = g_val if g_val in ["Manuální", "Automatická"] else "Manuální"
+                
+                st.session_state.parsed_equipment = str(data.get("equipment_summary", "Bez popisu výbavy."))
                 st.success("Údaje a výbava úspěšně načteny!")
             except Exception as e:
-                st.error(f"Chyba při parsování: {e}")
+                st.error(f"Chyba při parsování: {e}. Zkus text inzerátu vložit znovu nebo upravit.")
 
 st.markdown("---")
 
@@ -104,26 +116,28 @@ if submitted:
     else:
         with st.spinner("Špičkový mechanik prověřuje motor, převodovku, výbavu a trh..."):
             try:
+                clean_full_ad = ad_text_input.replace('"', "'").replace('\n', ' ') if ad_text_input else "Neuveden"
                 main_prompt = f"""Jsi hlavní šéfmechanik a soudní znalec v ČR s 25 lety praxe. Proveď detailní analýzu.
 Model: {model}, Rok: {year}, Nájezd: {km} km, Cena: {price} Kč, Palivo: {fuel}, Převodovka: {gearbox}
-Celý inzerát: {ad_text_input if ad_text_input.strip() else "Neuveden"}
+Celý inzerát: {clean_full_ad}
 
-Pravidlo: Celá odpověď musí být 100% v češtině. Vrať POUZE validní JSON (bez ```json):
+Pravidlo: Celá odpověď musí být 100% v češtině. Vrať POUZE validní JSON bez jakéhokoliv markdownu či komentářů:
 {{
-    "verdict": "🟢 KUPUJ / VÝBORNÁ NABÍDKA" nebo "🟡 ZVÁŽIT RIZIKA / MÍRNĚ PŘEDRAŽENO" nebo "🔴 RUCE PRYČ / VELKÉ RIZIKO",
+    "verdict": "🟢 KUPUJ / VÝBORNÁ NABÍDKA",
     "verdict_summary": "1-2 věty shrnutí",
-    "fair_price_min": min cena číslo,
-    "fair_price_max": max cena číslo,
+    "fair_price_min": 100000,
+    "fair_price_max": 150000,
     "price_evaluation": "Rozbor ceny vzhledem k trhu a výbavě",
-    "engine_gearbox_analysis": "Technický rozbor motoru a převodovky",
+    "engine_gearbox_analysis": "Technický rozbor motoru a převodovki",
     "common_failures": ["Bolístka 1", "Bolístka 2", "Bolístka 3"],
     "servicing_cost_2years": "Odhad servisu na 2 roky s částkami v Kč",
     "inspection_checklist": ["Kontrola 1", "Kontrola 2", "Kontrola 3", "Kontrola 4"],
     "recommendation": "Závěrečné doporučení pro vyjednávání"
 }}"""
                 res = call_groq(main_prompt, 4000)
-                if res.startswith("```json"): res = res[7:]
-                if res.endswith("```"): res = res[:-3]
+                res = re.sub(r'^```json\s*', '', res, flags=re.IGNORECASE)
+                res = re.sub(r'^```\s*', '', res, flags=re.IGNORECASE)
+                res = re.sub(r'\s*```$', '', res)
                 
                 data = json.loads(res.strip())
                 
@@ -145,11 +159,11 @@ Pravidlo: Celá odpověď musí být 100% v češtině. Vrať POUZE validní JSO
                 st.write(data['engine_gearbox_analysis'])
                 
                 st.markdown("### ⚠️ Typické slabiny a rizika")
-                for f in data['common_failures']:
+                for f in data.get('common_failures', []):
                     st.error(f"• {f}")
                     
                 st.markdown("### 🔍 Inspekční checklist")
-                for chk in data['inspection_checklist']:
+                for chk in data.get('inspection_checklist', []):
                     st.warning(f"✓ {chk}")
                     
                 st.markdown("### 🏁 Závěrečný verdikt")
