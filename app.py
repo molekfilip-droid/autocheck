@@ -1,8 +1,6 @@
 import streamlit as st
 import openai
 import json
-import requests
-from bs4 import BeautifulSoup
 
 # Nastavení stránky
 st.set_page_config(page_title="AutoCheck CZ", page_icon="🚗")
@@ -14,11 +12,11 @@ st.subheader("Chytrá analýza ojetiny s podporou AI")
 st.sidebar.markdown("### Groq API Klíč (Zdarma)")
 api_key = st.sidebar.text_input("Vlož svůj Groq API Key", type="password")
 
-# --- SEKCE PRO NAČTENÍ Z URL NEBO TEXTU ---
+# --- SEKCE PRO NAČTENÍ Z TEXTU INZERÁTU ---
 st.markdown("### 📋 Automatické vyplnění z inzerátu")
-st.markdown("Vlož **URL adresu** inzerátu (např. Sauto) nebo zkopíruj jeho **text**:")
+st.markdown("Zkopíruj text inzerátu (např. popis a parametry z bazoše nebo sauta) sem:")
 
-input_data = st.text_area("URL nebo text inzerátu", placeholder="https://www.sauto.cz/... nebo text inzerátu...")
+ad_text_input = st.text_area("Text inzerátu", placeholder="Sem vlož zkopírovaný text inzerátu...")
 
 if "form_model" not in st.session_state:
     st.session_state.form_model = "Škoda Octavia 1.5 TSI"
@@ -28,37 +26,21 @@ if "form_model" not in st.session_state:
     st.session_state.form_fuel = "Benzín"
     st.session_state.form_gearbox = "Manuální"
 
-if st.button("✨ Načíst data z inzerátu"):
+if st.button("✨ Načíst data z textu"):
     if not api_key:
         st.error("Pro chytré načtení nejprve vlož Groq API klíč v levém panelu.")
-    elif not input_data.strip():
-        st.warning("Vlož nejdřív URL nebo text inzerátu.")
+    elif not ad_text_input.strip():
+        st.warning("Vlož nejdřív text inzerátu.")
     else:
-        with st.spinner("Stahuji a čtu inzerát..."):
-            target_text = input_data
-            
-            # Pokud je to URL, zkusíme stáhnout text stránky
-            if input_data.strip().startswith("http"):
-                try:
-                    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-                    resp = requests.get(input_data.strip(), headers=headers, timeout=5)
-                    if resp.status_code == 200:
-                        soup = BeautifulSoup(resp.text, "html.parser")
-                        # Odstraníme skripty a styly
-                        for script in soup(["script", "style"]):
-                            script.decompose()
-                        target_text = soup.get_text(separator=" ", strip=True)[:4000] # Vezmeme prvních 4000 znaků textu
-                except Exception as e:
-                    st.warning(f"Nepodařilo se automaticky stáhnout URL (bazar blokuje přístup). Zkus prosím zkopírovat text inzerátu ručně. (Chyba: {e})")
-
+        with st.spinner("AI čte inzerát..."):
             try:
                 client = openai.OpenAI(
                     base_url="https://api.groq.com/openai/v1",
                     api_key=api_key
                 )
                 parse_prompt = f"""
-                Jsi parser inzerátů ojetých aut. Z následujícího textu (nebo obsahu webu) vytáhni údaje a vrať POUZE validní JSON (bez markdownu ```json):
-                Text: "{target_text}"
+                Jsi parser inzerátů ojetých aut. Z následujícího textu inzerátu vytáhni údaje a vrať POUZE validní JSON (bez markdownu ```json):
+                Text inzerátu: "{ad_text_input}"
                 
                 Struktura JSON:
                 {{
