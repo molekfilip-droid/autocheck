@@ -25,7 +25,7 @@ if "form_model" not in st.session_state:
     st.session_state.form_gearbox = "Manuální"
     st.session_state.parsed_equipment = "Zatím neuloženo – vlož inzerát a klikni na tlačítko výše."
 
-def call_groq(prompt_text, max_tokens=1000):
+def call_groq(prompt_text, max_tokens=2500):
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     payload = {
         "model": "openai/gpt-oss-20b",
@@ -36,7 +36,7 @@ def call_groq(prompt_text, max_tokens=1000):
     
     time.sleep(2)
     
-    response = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=45)
+    response = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=60)
     if response.status_code != 200:
         raise Exception(f"API Error {response.status_code}: {response.text}")
     return response.json()["choices"][0]["message"]["content"].strip()
@@ -107,7 +107,7 @@ if submitted:
     elif not model.strip():
         st.warning("Zadej značku a model vozidla.")
     else:
-        with st.spinner("Prohledávám trh a generuji posudek..."):
+        with st.spinner("Prohledávám trh a generuji hloubkový posudek..."):
             try:
                 search_query = f"{model} {year} cena ojetiny bazar"
                 search_url = f"https://html.duckduckgo.com/html/?q={requests.utils.quote(search_query)}"
@@ -118,14 +118,14 @@ if submitted:
                     resp_ddg = requests.get(search_url, headers=headers_ddg, timeout=10)
                     if resp_ddg.status_code == 200:
                         snippets = re.findall(r'<a class="result__snippet"[^>]*>(.*?)</a>', resp_ddg.text, re.DOTALL)
-                        clean_snippets = [re.sub(r'<[^>]+>', '', s).strip() for s in snippets[:2]]
+                        clean_snippets = [re.sub(r'<[^>]+>', '', s).strip() for s in snippets[:3]]
                         web_snippets = " ".join(clean_snippets)
                 except Exception:
                     web_snippets = "Tržní data nedostupná."
 
                 extracted_equipment_desc = st.session_state.parsed_equipment
                 
-                main_prompt = f"""Jsi špičkový český automobilový expert na ojetá auta. Vypracuj kompletní expertní posudek v češtině.
+                main_prompt = f"""Jsi špičkový český automobilový expert na ojetá auta. Napiš PODROBNÝ, VYČERPÁVAJÍCÍ a KOMPLETNÍ expertní posudek v češtině. Nepochybně vypiš všechny sekce detailně, nic nezkracuj.
 
 Hodnocené vozidlo:
 - Model: {model}
@@ -136,32 +136,33 @@ Hodnocené vozidlo:
 - Výbava: {extracted_equipment_desc}
 - Tržní kontext: {web_snippets}
 
-Dodrž tuto přesnou strukturu pomocí Markdown nadpisů:
+Použij tuto přesnou strukturu nadpisů a rozveď každou sekci:
 
 ## VERDIKT: [Zvol jedno: KUPUJ / FÉROVÁ NABÍDKA nebo ZVÁŽIT / JEDNAT O CENU nebo RUCE PRYČ / PŘEDRAŽENO]
-**Shrnutí:** [Jedna věta shrnutí]
+**Shrnutí:** [Podrobné shrnutí v 1-2 větách]
 
 ### 💰 Tržní hodnocení ceny a férové rozpětí
-[Zde zhodnoť cenu, odhadni férové cenové rozpětí a napiš odhadovaný servis na 2 roky]
+[Napiš detailní rozbor ceny, uveď konkrétní tržní rozpětí férové ceny v Kč a odhadni servisní náklady na následující 2 roky]
 
 ### ⚙️ Technický stav: Motor a převodovka
-[Rozbor motoru, převodovky a spolehlivosti]
+[Podrobný rozbor konkrétní motorizace, její spolehlivosti, chování převodovky (DSG/manuál) a na co si dát u tohoto pohonu pozor]
 
 ### ⚠️ Typické slabiny a rizika
-* [Slabina 1]
-* [Slabina 2]
-* [Slabina 3]
+* [Slabina 1 a jak se projevuje]
+* [Slabina 2 a jak se projevuje]
+* [Slabina 3 a jak se projevuje]
 
 ### 🔍 Inspekční checklist při prohlídce
-* [Na co se zaměřit 1]
-* [Na co se zaměřit 2]
-* [Na co se zaměřit 3]
+* [Konkrétní bod kontroly 1]
+* [Konkrétní bod kontroly 2]
+* [Konkrétní bod kontroly 3]
+* [Konkrétní bod kontroly 4]
 
 ### 🏁 Doporučení a nákupní taktika
-[Závěrečné doporučení a jak případně smlouvat]
+[Detailní závěrečné doporučení, zda auto jet projet na diagnostiku, jak smlouvat a jaké argumenty použít]
 """
 
-                analysis_result = call_groq(main_prompt, 1200)
+                analysis_result = call_groq(main_prompt, 2500)
                 
                 st.markdown("---")
                 st.markdown(analysis_result)
