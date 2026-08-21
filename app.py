@@ -47,15 +47,15 @@ if st.button("✨ Načíst data z textu inzerátu"):
     elif not ad_text_input.strip():
         st.warning("Vlož nejdřív text inzerátu.")
     else:
-        with st.spinner("AI vytahuje parametry a výbavu v češtině..."):
+        with st.spinner("AI vytahuje parametry a rozepisuje výbavu v češtině..."):
             try:
                 clean_ad = ad_text_input.replace('"', "'").replace('\n', ' ').replace('\r', ' ')
-                p_text = f"""Z následujícího inzerátu vyextrahuj parametry a vrať PŘESNĚ v tomto formátu odděleném středníky (žádný jiný text):
-model|rok|km|cena|palivo|prevodovka|vybava
-Například: Škoda Octavia|2019|150000|350000|Nafta|Manuální|Vyhřívané sedačky, navigace
+                p_text = f"""Z inzerátu extrahuj data a vrať PŘESNĚ tento formát oddělený středníky (žádný jiný text):
+model|rok|km|cena|palivo|prevodovka|strukturovaná_výbava_v_odrážkách_nebo_kategoriích
+Například: Škoda Octavia|2019|150000|350000|Nafta|Manuální|**Bezpečnost:** ABS, ESP<br>**Komfort:** Vyhřívané sedačky, klima<br>**Multimédia:** Navigace
 Text inzerátu: "{clean_ad}"
 """
-                res = call_groq(p_text, 200)
+                res = call_groq(p_text, 600)
                 parts = res.split('|')
                 if len(parts) >= 6:
                     st.session_state.form_model = parts[0].strip()
@@ -70,18 +70,20 @@ Text inzerátu: "{clean_ad}"
                     st.session_state.form_gearbox = g_val if g_val in ["Manuální", "Automatická"] else "Manuální"
                     
                     if len(parts) > 6:
-                        st.session_state.parsed_equipment = parts[6].strip()
+                        # Ošetříme případné formátování a nahradíme HTML <br> na markdown odrážky pro Streamlit
+                        raw_eq = parts[6].strip().replace('<br>', '\n')
+                        st.session_state.parsed_equipment = raw_eq
                     st.success("Data úspěšně načtena!")
                 else:
-                    raise Exception("Nepodařilo se správně parsovat odpovídající řetězec.")
+                    raise Exception("Nepodařilo se správně parsovat odpověď.")
             except Exception as e:
                 st.session_state.parsed_equipment = ad_text_input
-                st.warning(f"Pozor: Automatické vyplnění selhalo ({e}), text inzerátu byl uložen do výbavy.")
+                st.warning(f"Pozor: Parsování výbavy narazilo na problém ({e}), uložen surový text.")
 
 st.markdown("---")
 
-with st.expander("🔍 Zkontrolovat načtenou výbavu (Detailní přehled)", expanded=True):
-    st.info(st.session_state.parsed_equipment)
+with st.expander("🔍 Zkontrolovat načtenou výbavu (Strukturovaný přehled)", expanded=True):
+    st.markdown(st.session_state.parsed_equipment)
 
 with st.form("car_form"):
     st.markdown("### 🚗 Parametry vozidla")
