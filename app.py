@@ -53,7 +53,7 @@ if st.button("✨ Načíst data z textu"):
                 }}
                 """
                 response = client.chat.completions.create(
-                    model="openai/gpt-oss-20b",
+                    model="llama-3.1-8b-instant",
                     messages=[{"role": "user", "content": parse_prompt}],
                     temperature=0.1
                 )
@@ -128,7 +128,7 @@ if submitted:
             
             try:
                 response = client.chat.completions.create(
-                    model="openai/gpt-oss-20b",
+                    model="llama-3.1-8b-instant",
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0.3
                 )
