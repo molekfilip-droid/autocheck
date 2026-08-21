@@ -91,7 +91,6 @@ Text inzerátu: "{clean_ad}"
 """
                 res = call_groq_json(p_text, 1500)
                 
-                # Vyčištění případných markdown značek, kdyby je model přece jen poslal
                 res_clean = re.sub(r'^```(?:json)?\s*', '', res, flags=re.IGNORECASE)
                 res_clean = re.sub(r'\s*```$', '', res_clean)
                 
@@ -119,7 +118,6 @@ Text inzerátu: "{clean_ad}"
 
 st.markdown("---")
 
-# Zobrazení přehledných tabulek s výbavou přímo na stránce
 st.markdown("### 🔍 Přehled načtené výbavy a parametrů z inzerátu")
 eq_list = st.session_state.parsed_equipment
 
@@ -127,38 +125,3 @@ if isinstance(eq_list, list) and len(eq_list) > 0 and isinstance(eq_list[0], dic
     col_t1, col_t2 = st.columns(2)
     
     with col_t1:
-        st.markdown("#### 🚗 Základní parametry")
-        df_params = pd.DataFrame([
-            {"Parametr": "Model", "Hodnota": st.session_state.form_model},
-            {"Parametr": "Rok výroby", "Hodnota": st.session_state.form_year},
-            {"Parametr": "Nájezd", "Hodnota": f"{st.session_state.form_km:,} km"},
-            {"Parametr": "Cena", "Hodnota": f"{st.session_state.form_price:,} Kč"},
-            {"Parametr": "Palivo", "Hodnota": st.session_state.form_fuel},
-            {"Parametr": "Převodovka", "Hodnota": st.session_state.form_gearbox}
-        ])
-        st.dataframe(df_params, use_container_width=True, hide_index=True)
-        
-    with col_t2:
-        st.markdown("#### 🛡️ Extrahovaná výbava")
-        df_eq = pd.DataFrame(eq_list)
-        df_eq.columns = ["Kategorie", "Prvek výbavy"]
-        st.dataframe(df_eq, use_container_width=True, hide_index=True)
-else:
-    st.info("Zatím nebyl načten žádný inzerát. Vlož text nahoře a klikni na tlačítko.")
-
-st.markdown("---")
-
-with st.form("car_form"):
-    st.markdown("### ⚙️ Úprava parametrů před analýzou")
-    c1, c2 = st.columns(2)
-    model = c1.text_input("Značka a model", value=st.session_state.form_model)
-    year = c2.number_input("Rok výroby", min_value=1990, max_value=2026, value=st.session_state.form_year)
-    km = c1.number_input("Nájezd (km)", min_value=0, value=st.session_state.form_km, step=1000)
-    price = c2.number_input("Cena (Kč)", min_value=0, value=st.session_state.form_price, step=10000)
-    
-    f_opts = ["Benzín", "Nafta", "Hybrid", "Elektro"]
-    f_idx = f_opts.index(st.session_state.form_fuel) if st.session_state.form_fuel in f_opts else 0
-    fuel = st.selectbox("Palivo", f_opts, index=f_idx)
-    
-    g_opts = ["Manuální", "Automatická"]
-    g_idx = g_opts.index(st.session_state.form_
