@@ -50,6 +50,7 @@ st.markdown("""
     border-radius: 12px;
     border: 1px solid rgba(128,128,128,0.18);
     margin-bottom: 12px;
+    min-height: 85px;
 }
 
 .small-label {
@@ -92,12 +93,36 @@ st.markdown("""
     margin-top: 5px;
 }
 
+.section-intro {
+    color: #9aa5b8;
+    font-size: 15px;
+    margin-bottom: 18px;
+}
+
+.action-card {
+    padding: 20px;
+    border-radius: 14px;
+    border: 1px solid rgba(128,128,128,0.2);
+    min-height: 120px;
+}
+
+.action-label {
+    color: #9aa5b8;
+    font-size: 13px;
+}
+
+.action-value {
+    font-size: 24px;
+    font-weight: 800;
+    margin-top: 6px;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
 
 # ============================================================
-# API KEY
+# API
 # ============================================================
 
 def get_api_key():
@@ -492,7 +517,7 @@ ANALYSIS_SCHEMA = {
 
 
 # ============================================================
-# ANALÝZA
+# AI ANALÝZA
 # ============================================================
 
 def analyze_car(ad_text):
@@ -504,19 +529,16 @@ def analyze_car(ad_text):
     )
 
     prompt = f"""
-Jsi profesionální český automobilový analytik.
+Jsi profesionální český automobilový analytik vytvářející
+předkupní audit ojetého automobilu.
 
-Analyzuj následující inzerát ojetého automobilu.
-
-Cílem není napsat obecný článek.
-Cílem je pomoci kupujícímu rozhodnout:
-
-1. Je auto zajímavé?
-2. Jaká je férová cena?
-3. Jaká rizika má konkrétní konfigurace?
-4. Kolik může stát vlastnictví?
-5. Kolik nabídnout?
-6. Má smysl za autem jet?
+Tvým cílem je pomoci kupujícímu rozhodnout:
+- zda je auto zajímavé,
+- zda odpovídá cena,
+- jaká jsou rizika,
+- kolik může stát vlastnictví,
+- jak vyjednávat,
+- zda má smysl za autem jet.
 
 TEXT INZERÁTU:
 
@@ -525,109 +547,147 @@ TEXT INZERÁTU:
 
 DŮLEŽITÁ PRAVIDLA:
 
-Nevymýšlej údaje, které nejsou známé.
+Nevymýšlej konkrétní fakta, která nejsou známá.
 
-Pokud údaj není v inzerátu, použij "neuvedeno".
+Pokud údaj není uveden, napiš "neuvedeno".
 
-Nepředstírej přístup k databázím, pokud ho nemáš.
+Nepředstírej přístup k databázím, servisním systémům
+nebo konkrétním statistikám, pokud je nemáš.
 
-U zkušeností majitelů používej pouze obecně známé
-typické zkušenosti s daným motorem, převodovkou a modelem.
+U zkušeností majitelů uváděj pouze obecně známé
+typické zkušenosti s konkrétním modelem, motorem
+a převodovkou.
 
-Nevymýšlej počty majitelů, počty recenzí ani statistiky.
+Nevymýšlej počet majitelů, počet recenzí ani statistiky.
 
-U cen používej odborný orientační odhad.
+Ceny oprav uváděj jako realistický orientační odhad
+pro český trh.
 
-U servisních cen používej realistické rozpětí.
+Buď konkrétní a praktický.
 
-Buď konkrétní.
 
-Pokud je v inzerátu například vysoký nájezd,
-zohledni ho v ceně a ve vyjednávání.
+============================================================
+1. NÁKUPNÍ VERDIKT
+============================================================
 
-Pokud je vozidlo těsně před důležitým servisem,
-použij to jako argument při vyjednávání.
+KUPUJ:
+Velmi zajímavá nabídka.
 
-Pokud je něco pozitivní, také to uveď.
+VYJEDNÁVAT:
+Auto může být dobrá koupě, ale je potřeba
+vyjednat cenu nebo ověřit rizika.
 
-VERDIKT:
-
-KUPUJ = velmi zajímavá koupě.
-
-VYJEDNÁVAT = zajímavé auto, ale cena nebo rizika
-vyžadují jednání.
-
-RUCE PRYČ = auto je vzhledem k ceně nebo riziku
-nevhodná koupě.
+RUCE PRYČ:
+Cena, stav nebo rizika nedávají smysl.
 
 Skóre 1–10.
 
 
-CENA:
+============================================================
+2. IDENTIFIKACE
+============================================================
 
 Urči:
+- značku
+- model
+- rok
+- motor
+- výkon
+- palivo
+- převodovku
+- pohon
+- karoserii
+- nájezd
+- cenu
 
+
+============================================================
+3. CENA
+============================================================
+
+Urči:
 - férovou cenu
 - dobrou nákupní cenu
-- maximální rozumnou cenu
+- maximální cenu
 
 Zohledni:
-
 - rok
 - nájezd
 - motor
-- výkon
 - převodovku
 - výbavu
 - karoserii
 - pohon
 - stav
-- cenu
+- aktuální cenu v inzerátu
 
 
-RED FLAGS:
+============================================================
+4. RED FLAGS
+============================================================
 
-Hledej například:
-
+Hledej:
 - podezřelý nájezd
 - chybějící servis
 - nejasný původ
 - chybějící VIN
 - nejasnou historii
-- nesoulad ceny a parametrů
+- nesoulad ceny
 - technická rizika
-- neobvyklé formulace v inzerátu
+- podezřelé formulace
 
-Nedělej z každé chybějící informace automaticky
-velký problém.
+Chybějící údaj není automaticky problém.
+Rozlišuj mezi "není uvedeno" a skutečným rizikem.
 
 
-ZKUŠENOSTI:
+============================================================
+5. ZKUŠENOSTI MAJITELŮ
+============================================================
 
-Uveď typické zkušenosti s:
-
-- spolehlivostí
+Shrň typické zkušenosti s:
+- modelem
 - motorem
 - převodovkou
 - komfortem
 - spotřebou
+- spolehlivostí
 - servisními náklady
 
 Rozděl:
-
-- co se typicky chválí
-- co se typicky kritizuje
+- pozitivní zkušenosti
+- negativní zkušenosti
 - typické problémy
 
-Na konci jasně napiš, že jde o orientační shrnutí
-typických zkušeností, nikoli o statistiku konkrétní
-databáze majitelů.
+Výslovně uváděj, že nejde o statistiku konkrétní databáze.
 
 
-REÁLNÁ CENA VLASTNICTVÍ:
+============================================================
+6. TECHNICKÝ ROZBOR
+============================================================
+
+Analyzuj relevantní části:
+
+- motor
+- turbo
+- převodovku
+- DPF
+- EGR
+- AdBlue
+- vstřiky
+- rozvody
+- dvouhmotu
+- spojku
+- podvozek
+- elektroniku
+
+Neuváděj nerelevantní části.
+
+
+============================================================
+7. REÁLNÁ CENA VLASTNICTVÍ
+============================================================
 
 Odhadni:
-
 - kupní cenu
 - běžný servis
 - pravděpodobné opravy
@@ -635,26 +695,30 @@ Odhadni:
 - rizikovou rezervu
 - celkové náklady za 2 roky
 
-Pracuj s realistickým rozpětím.
+
+============================================================
+8. VYJEDNÁVÁNÍ
+============================================================
+
+Vypočítej:
+
+START:
+Cena, kterou bych nabídl jako první.
+
+CÍL:
+Cena, na které bych chtěl skončit.
+
+MAXIMUM:
+Cena, nad kterou bych už nekupoval.
+
+Uveď konkrétní argumenty.
 
 
-VYJEDNÁVÁNÍ:
+============================================================
+9. MÁM TAM JET?
+============================================================
 
-Navrhni:
-
-- startovací nabídku
-- cílovou cenu
-- maximální cenu
-- odhadovanou úsporu
-
-Uveď konkrétní argumenty pro prodejce.
-
-Argumenty musí vycházet z konkrétního auta.
-
-
-MÁM TAM JET?
-
-Vyber:
+Rozhodni:
 
 ANO
 SPÍŠ ANO
@@ -663,76 +727,48 @@ NE
 
 Vysvětli proč.
 
-Potom uveď:
-
-- co vyžádat před cestou
+Uveď:
+- co si vyžádat před cestou
 - co zkontrolovat na místě
 
 
-TECHNIKA:
+============================================================
+10. CHECKLIST
+============================================================
 
-Analyzuj konkrétní:
-
-- motor
-- převodovku
-- turbo
-- rozvody
-- vstřiky
-- DPF
-- EGR
-- AdBlue
-- dvouhmotu
-- spojku
-- podvozek
-- elektroniku
-
-Pouze pokud jsou relevantní.
+Vytvoř praktický checklist fyzické prohlídky.
 
 
-RIZIKA:
-
-U každého významného rizika uveď:
-
-- problém
-- projevy
-- jak ověřit
-- orientační cenu opravy
-
-
-CHECKLIST:
-
-Vytvoř praktický checklist pro fyzickou prohlídku.
-
-
-SERVIS:
+============================================================
+11. SERVIS
+============================================================
 
 Odhadni:
-
 - běžný servis
 - pravděpodobné opravy
 - špatný scénář
 - celkové náklady za 2 roky
 
 
-ZÁVĚR:
+============================================================
+12. ZÁVĚR
+============================================================
 
 Napiš jednoznačné doporučení:
-
-- zda bych za auto jel
-- kolik bych nabídl
-- jakou cenu bych nepřekročil
-- co je nutné před koupí ověřit
+- zda za auto jet
+- kolik nabídnout
+- jakou cenu nepřekročit
+- co nutně ověřit
 
 
 VRAŤ POUZE VALIDNÍ JSON PODLE SCHÉMATU.
 
-Žádný Markdown.
-Žádné HTML.
-Žádné ```json.
-Žádný text před JSON.
-Žádný text za JSON.
+ŽÁDNÝ MARKDOWN.
+ŽÁDNÉ HTML.
+ŽÁDNÉ ```json.
+ŽÁDNÝ TEXT PŘED JSON.
+ŽÁDNÝ TEXT ZA JSON.
 """
-
 
     last_error = None
 
@@ -759,7 +795,7 @@ VRAŤ POUZE VALIDNÍ JSON PODLE SCHÉMATU.
             if not response.text:
 
                 raise Exception(
-                    "Gemini vrátil prázdnou odpověď."
+                    "Model vrátil prázdnou odpověď."
                 )
 
             return json.loads(
@@ -785,7 +821,7 @@ VRAŤ POUZE VALIDNÍ JSON PODLE SCHÉMATU.
 
 
 # ============================================================
-# UI FUNKCE
+# UI POMOCNÉ FUNKCE
 # ============================================================
 
 def info_card(label, value):
@@ -829,7 +865,7 @@ st.markdown(
 )
 
 st.caption(
-    "Technická rizika • Cena • Servis • Vyjednávání • Nákupní verdikt"
+    "Cena • Technika • Rizika • Servis • Vyjednávání • Nákupní verdikt"
 )
 
 
@@ -849,7 +885,7 @@ st.sidebar.markdown("---")
 
 st.sidebar.markdown(
     """
-### Co AutoCheck vyhodnotí
+### AutoCheck vyhodnotí
 
 ✓ Nákupní verdikt
 
@@ -859,15 +895,15 @@ st.sidebar.markdown(
 
 ✓ Zkušenosti s konfigurací
 
-✓ Reálné náklady vlastnictví
+✓ Technická rizika
+
+✓ Náklady vlastnictví
 
 ✓ Vyjednávací taktiku
 
-✓ Technická rizika
+✓ Doporučení „Mám tam jet?“
 
-✓ Checklist
-
-✓ Doporučení, zda jet na prohlídku
+✓ Checklist prohlídky
 """
 )
 
@@ -888,8 +924,7 @@ st.markdown(
 
 st.write(
     "Vlož kompletní text automobilového inzerátu. "
-    "AutoCheck z něj automaticky vytvoří profesionální "
-    "předkupní audit."
+    "AutoCheck z něj vytvoří profesionální předkupní audit."
 )
 
 ad_text = st.text_area(
@@ -927,13 +962,9 @@ if st.button(
 
             try:
 
-                result = analyze_car(
+                st.session_state["analysis"] = analyze_car(
                     ad_text
                 )
-
-                st.session_state[
-                    "analysis"
-                ] = result
 
             except Exception as e:
 
@@ -950,11 +981,6 @@ if "analysis" in st.session_state:
 
     data = st.session_state["analysis"]
 
-
-    # ========================================================
-    # VERDIKT
-    # ========================================================
-
     verdict = data.get(
         "verdict",
         "VYJEDNÁVAT"
@@ -970,6 +996,30 @@ if "analysis" in st.session_state:
         ""
     )
 
+    car = data.get(
+        "car",
+        {}
+    )
+
+    price = data.get(
+        "price_analysis",
+        {}
+    )
+
+    negotiation = data.get(
+        "negotiation",
+        {}
+    )
+
+    visit = data.get(
+        "should_visit",
+        {}
+    )
+
+
+    # ========================================================
+    # 1. HLAVNÍ ROZHODNUTÍ
+    # ========================================================
 
     st.markdown("---")
 
@@ -982,7 +1032,6 @@ if "analysis" in st.session_state:
         """,
         unsafe_allow_html=True
     )
-
 
     if verdict == "KUPUJ":
 
@@ -1026,40 +1075,83 @@ if "analysis" in st.session_state:
             unsafe_allow_html=True
         )
 
-
     st.markdown(
         "</div>",
         unsafe_allow_html=True
     )
 
-
     st.markdown(
-        "### Shrnutí"
-    )
-
-    st.write(
-        summary
+        f"### {summary}"
     )
 
 
     # ========================================================
-    # IDENTIFIKACE
+    # RYCHLÉ ROZHODNUTÍ
+    # ========================================================
+
+    st.markdown(
+        "### ⚡ Rychlé rozhodnutí"
+    )
+
+    q1, q2, q3, q4 = st.columns(4)
+
+    with q1:
+
+        score_card(
+            "Celkové hodnocení",
+            f"{score}/10"
+        )
+
+    with q2:
+
+        score_card(
+            "Férová cena",
+            price.get(
+                "fair_price",
+                "Neuvedeno"
+            )
+        )
+
+    with q3:
+
+        score_card(
+            "Cílová cena",
+            negotiation.get(
+                "target_price",
+                "Neuvedeno"
+            )
+        )
+
+    with q4:
+
+        score_card(
+            "Mám tam jet?",
+            visit.get(
+                "decision",
+                "Neuvedeno"
+            )
+        )
+
+
+    # ========================================================
+    # 2. CO VLASTNĚ KUPUJI
     # ========================================================
 
     st.markdown("---")
 
     st.markdown(
-        "## 🚘 Identifikace vozidla"
+        "## 🚘 Co vlastně kupuji"
     )
 
-    car = data.get(
-        "car",
-        {}
+    st.markdown(
+        '<div class="section-intro">'
+        'Základní konfigurace vozidla načtená z inzerátu.'
+        '</div>',
+        unsafe_allow_html=True
     )
 
 
     c1, c2, c3 = st.columns(3)
-
 
     with c1:
 
@@ -1145,23 +1237,68 @@ if "analysis" in st.session_state:
 
 
     # ========================================================
-    # CENA
+    # VÝBAVA
+    # ========================================================
+
+    st.markdown(
+        "### 🛡️ Výbava"
+    )
+
+    equipment = data.get(
+        "equipment",
+        []
+    )
+
+    if equipment:
+
+        e1, e2 = st.columns(2)
+
+        for i, item in enumerate(
+            equipment
+        ):
+
+            if i % 2 == 0:
+
+                with e1:
+
+                    st.markdown(
+                        f"✓ {item}"
+                    )
+
+            else:
+
+                with e2:
+
+                    st.markdown(
+                        f"✓ {item}"
+                    )
+
+    else:
+
+        st.info(
+            "Výbava nebyla v inzerátu dostatečně uvedena."
+        )
+
+
+    # ========================================================
+    # 3. CENA
     # ========================================================
 
     st.markdown("---")
 
     st.markdown(
-        "## 💰 Hodnocení ceny"
+        "## 💰 Je cena dobrá?"
     )
 
-    price = data.get(
-        "price_analysis",
-        {}
+    st.markdown(
+        '<div class="section-intro">'
+        'Odhad férové hodnoty a prostoru pro nákup.'
+        '</div>',
+        unsafe_allow_html=True
     )
 
 
     p1, p2, p3 = st.columns(3)
-
 
     with p1:
 
@@ -1173,7 +1310,6 @@ if "analysis" in st.session_state:
             )
         )
 
-
     with p2:
 
         score_card(
@@ -1183,7 +1319,6 @@ if "analysis" in st.session_state:
                 "Neuvedeno"
             )
         )
-
 
     with p3:
 
@@ -1197,16 +1332,11 @@ if "analysis" in st.session_state:
 
 
     st.info(
-        "Rozdíl vůči odhadované tržní hodnotě: "
+        "Rozdíl oproti trhu: "
         + price.get(
             "market_difference",
             "Neuvedeno"
         )
-    )
-
-
-    st.markdown(
-        "### Cenový komentář"
     )
 
     st.write(
@@ -1218,7 +1348,7 @@ if "analysis" in st.session_state:
 
 
     # ========================================================
-    # RED FLAGS
+    # 4. RED FLAGS
     # ========================================================
 
     st.markdown("---")
@@ -1232,12 +1362,10 @@ if "analysis" in st.session_state:
         {}
     )
 
-
     overall = red_flags.get(
         "overall",
         "STŘEDNÍ"
     )
-
 
     if overall == "NÍZKÉ":
 
@@ -1274,31 +1402,29 @@ if "analysis" in st.session_state:
             "STŘEDNÍ"
         )
 
+        text = (
+            f"**{flag.get('title', '')}**\n\n"
+            f"{flag.get('description', '')}\n\n"
+            f"**Jak ověřit:** "
+            f"{flag.get('what_to_check', '')}"
+        )
+
         if severity == "VYSOKÉ":
 
             st.error(
-                f"🔴 **{flag.get('title', '')}**\n\n"
-                f"{flag.get('description', '')}\n\n"
-                f"**Ověřit:** "
-                f"{flag.get('what_to_check', '')}"
+                "🔴 " + text
             )
 
         elif severity == "STŘEDNÍ":
 
             st.warning(
-                f"🟡 **{flag.get('title', '')}**\n\n"
-                f"{flag.get('description', '')}\n\n"
-                f"**Ověřit:** "
-                f"{flag.get('what_to_check', '')}"
+                "🟡 " + text
             )
 
         else:
 
             st.info(
-                f"🟢 **{flag.get('title', '')}**\n\n"
-                f"{flag.get('description', '')}\n\n"
-                f"**Ověřit:** "
-                f"{flag.get('what_to_check', '')}"
+                "🟢 " + text
             )
 
 
@@ -1306,7 +1432,6 @@ if "analysis" in st.session_state:
         "missing_information",
         []
     )
-
 
     if missing:
 
@@ -1322,30 +1447,26 @@ if "analysis" in st.session_state:
 
 
     # ========================================================
-    # ZKUŠENOSTI
+    # 5. ZKUŠENOSTI
     # ========================================================
 
     st.markdown("---")
 
     st.markdown(
-        "## ⭐ Zkušenosti s touto konfigurací"
+        "## ⭐ Zkušenosti majitelů"
     )
 
     st.caption(
-        "Orientační shrnutí typických dlouhodobých zkušeností "
-        "s daným modelem, motorem a převodovkou. "
-        "Nejde o statistiku konkrétní databáze majitelů."
+        "Orientační shrnutí typických zkušeností s danou "
+        "konfigurací. Nejde o statistiku konkrétní databáze."
     )
-
 
     owners = data.get(
         "owner_experience",
         {}
     )
 
-
     o1, o2, o3 = st.columns(3)
-
 
     with o1:
 
@@ -1365,7 +1486,6 @@ if "analysis" in st.session_state:
             )
         )
 
-
     with o2:
 
         score_card(
@@ -1384,7 +1504,6 @@ if "analysis" in st.session_state:
             )
         )
 
-
     with o3:
 
         score_card(
@@ -1396,7 +1515,7 @@ if "analysis" in st.session_state:
         )
 
         score_card(
-            "Servisní náklady",
+            "Servis",
             owners.get(
                 "service_cost",
                 "Neuvedeno"
@@ -1405,7 +1524,6 @@ if "analysis" in st.session_state:
 
 
     oc1, oc2 = st.columns(2)
-
 
     with oc1:
 
@@ -1421,7 +1539,6 @@ if "analysis" in st.session_state:
             st.markdown(
                 f"✓ {item}"
             )
-
 
     with oc2:
 
@@ -1452,7 +1569,6 @@ if "analysis" in st.session_state:
             f"• {item}"
         )
 
-
     st.caption(
         owners.get(
             "note",
@@ -1462,345 +1578,19 @@ if "analysis" in st.session_state:
 
 
     # ========================================================
-    # VLASTNICTVÍ
+    # 6. TECHNICKÝ ROZBOR
     # ========================================================
 
     st.markdown("---")
 
     st.markdown(
-        "## 💰 Reálná cena vlastnictví"
+        "## ⚙️ Technický rozbor"
     )
-
-    st.caption(
-        "Orientační odhad celkových nákladů během prvních "
-        "dvou let vlastnictví."
-    )
-
-
-    ownership = data.get(
-        "ownership_cost",
-        {}
-    )
-
-
-    a1, a2, a3 = st.columns(3)
-
-
-    with a1:
-
-        score_card(
-            "Kupní cena",
-            ownership.get(
-                "purchase_price",
-                "Neuvedeno"
-            )
-        )
-
-        score_card(
-            "Běžný servis",
-            ownership.get(
-                "normal_service",
-                "Neuvedeno"
-            )
-        )
-
-
-    with a2:
-
-        score_card(
-            "Pravděpodobné opravy",
-            ownership.get(
-                "likely_repairs",
-                "Neuvedeno"
-            )
-        )
-
-        score_card(
-            "Pneumatiky / brzdy",
-            ownership.get(
-                "tires_brakes",
-                "Neuvedeno"
-            )
-        )
-
-
-    with a3:
-
-        score_card(
-            "Riziková rezerva",
-            ownership.get(
-                "risk_reserve",
-                "Neuvedeno"
-            )
-        )
-
-        score_card(
-            "Celkem / 2 roky",
-            ownership.get(
-                "two_year_total",
-                "Neuvedeno"
-            )
-        )
-
-
-    st.write(
-        ownership.get(
-            "explanation",
-            ""
-        )
-    )
-
-
-    # ========================================================
-    # VYJEDNÁVÁNÍ
-    # ========================================================
-
-    st.markdown("---")
-
-    st.markdown(
-        "## 🤝 Vyjednávací kalkulačka"
-    )
-
-    negotiation = data.get(
-        "negotiation",
-        {}
-    )
-
-
-    n1, n2, n3 = st.columns(3)
-
-
-    with n1:
-
-        score_card(
-            "Začít nabídkou",
-            negotiation.get(
-                "opening_offer",
-                "Neuvedeno"
-            )
-        )
-
-
-    with n2:
-
-        score_card(
-            "Cílová cena",
-            negotiation.get(
-                "target_price",
-                "Neuvedeno"
-            )
-        )
-
-
-    with n3:
-
-        score_card(
-            "Maximální cena",
-            negotiation.get(
-                "maximum_price",
-                "Neuvedeno"
-            )
-        )
-
-
-    st.success(
-        "💰 Odhadovaný prostor pro úsporu: "
-        + negotiation.get(
-            "estimated_saving",
-            "Neuvedeno"
-        )
-    )
-
-
-    st.markdown(
-        "### 🎯 Argumenty pro vyjednávání"
-    )
-
-
-    for i, argument in enumerate(
-        negotiation.get(
-            "arguments",
-            []
-        ),
-        start=1
-    ):
-
-        with st.container(border=True):
-
-            st.markdown(
-                f"**{i}. {argument.get('argument', '')}**"
-            )
-
-            st.caption(
-                "Dopad na cenu: "
-                + argument.get(
-                    "impact",
-                    "Neuvedeno"
-                )
-            )
-
-
-    # ========================================================
-    # MÁM TAM JET?
-    # ========================================================
-
-    st.markdown("---")
-
-    st.markdown(
-        "## 🏃 Mám tam jet?"
-    )
-
-    visit = data.get(
-        "should_visit",
-        {}
-    )
-
-
-    decision = visit.get(
-        "decision",
-        "SPÍŠ ANO"
-    )
-
-
-    if decision == "ANO":
-
-        st.success(
-            "🟢 **ANO – auto stojí za osobní prohlídku.**"
-        )
-
-    elif decision == "SPÍŠ ANO":
-
-        st.success(
-            "🟢 **SPÍŠ ANO – prohlídka dává smysl, "
-            "ale před cestou ověř několik věcí.**"
-        )
-
-    elif decision == "SPÍŠ NE":
-
-        st.warning(
-            "🟠 **SPÍŠ NE – před cestou si vyžádej "
-            "další informace.**"
-        )
-
-    else:
-
-        st.error(
-            "🔴 **NE – podle dostupných údajů "
-            "nemá smysl za autem jezdit.**"
-        )
-
-
-    st.markdown(
-        "### Proč?"
-    )
-
-    st.write(
-        visit.get(
-            "reason",
-            ""
-        )
-    )
-
-
-    vc1, vc2 = st.columns(2)
-
-
-    with vc1:
-
-        st.markdown(
-            "### 📞 Před cestou si vyžádej"
-        )
-
-        for item in visit.get(
-            "before_trip",
-            []
-        ):
-
-            st.markdown(
-                f"☐ {item}"
-            )
-
-
-    with vc2:
-
-        st.markdown(
-            "### 🔍 Přímo u auta zkontroluj"
-        )
-
-        for item in visit.get(
-            "at_car",
-            []
-        ):
-
-            st.markdown(
-                f"☐ {item}"
-            )
-
-
-    # ========================================================
-    # VÝBAVA
-    # ========================================================
-
-    st.markdown("---")
-
-    st.markdown(
-        "## 🛡️ Výbava"
-    )
-
-
-    equipment = data.get(
-        "equipment",
-        []
-    )
-
-
-    if equipment:
-
-        e1, e2 = st.columns(2)
-
-        for i, item in enumerate(
-            equipment
-        ):
-
-            if i % 2 == 0:
-
-                with e1:
-
-                    st.markdown(
-                        f"✓ {item}"
-                    )
-
-            else:
-
-                with e2:
-
-                    st.markdown(
-                        f"✓ {item}"
-                    )
-
-    else:
-
-        st.info(
-            "Výbava nebyla v inzerátu dostatečně uvedena."
-        )
-
-
-    # ========================================================
-    # TECHNIKA
-    # ========================================================
-
-    st.markdown("---")
-
-    st.markdown(
-        "## ⚙️ Technická analýza"
-    )
-
 
     technical = data.get(
         "technical",
         {}
     )
-
 
     st.markdown(
         "### 🔧 Motor"
@@ -1813,7 +1603,6 @@ if "analysis" in st.session_state:
         )
     )
 
-
     st.markdown(
         "### ⚙️ Převodovka"
     )
@@ -1824,7 +1613,6 @@ if "analysis" in st.session_state:
             ""
         )
     )
-
 
     st.markdown(
         "### 🛡️ Spolehlivost"
@@ -1837,11 +1625,9 @@ if "analysis" in st.session_state:
         )
     )
 
-
     st.markdown(
         "### 🔎 Klíčové body"
     )
-
 
     for item in technical.get(
         "important_points",
@@ -1854,21 +1640,17 @@ if "analysis" in st.session_state:
 
 
     # ========================================================
-    # RIZIKA
+    # TECHNICKÁ RIZIKA
     # ========================================================
 
-    st.markdown("---")
-
     st.markdown(
-        "## ⚠️ Technická rizika"
+        "### ⚠️ Konkrétní technická rizika"
     )
-
 
     risks = data.get(
         "risks",
         []
     )
-
 
     for i, risk in enumerate(
         risks,
@@ -1914,25 +1696,279 @@ if "analysis" in st.session_state:
 
 
     # ========================================================
-    # CHECKLIST
+    # 7. NÁKLADY
     # ========================================================
 
     st.markdown("---")
 
     st.markdown(
-        "## 🔍 Checklist před koupí"
+        "## 💸 Kolik mě to bude stát?"
+    )
+
+    st.markdown(
+        '<div class="section-intro">'
+        'Odhad skutečných nákladů vlastnictví během prvních dvou let.'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+    ownership = data.get(
+        "ownership_cost",
+        {}
+    )
+
+    a1, a2, a3 = st.columns(3)
+
+    with a1:
+
+        score_card(
+            "Kupní cena",
+            ownership.get(
+                "purchase_price",
+                "Neuvedeno"
+            )
+        )
+
+        score_card(
+            "Běžný servis",
+            ownership.get(
+                "normal_service",
+                "Neuvedeno"
+            )
+        )
+
+    with a2:
+
+        score_card(
+            "Pravděpodobné opravy",
+            ownership.get(
+                "likely_repairs",
+                "Neuvedeno"
+            )
+        )
+
+        score_card(
+            "Pneumatiky / brzdy",
+            ownership.get(
+                "tires_brakes",
+                "Neuvedeno"
+            )
+        )
+
+    with a3:
+
+        score_card(
+            "Riziková rezerva",
+            ownership.get(
+                "risk_reserve",
+                "Neuvedeno"
+            )
+        )
+
+        score_card(
+            "CELKEM / 2 ROKY",
+            ownership.get(
+                "two_year_total",
+                "Neuvedeno"
+            )
+        )
+
+    st.write(
+        ownership.get(
+            "explanation",
+            ""
+        )
+    )
+
+
+    # ========================================================
+    # 8. VYJEDNÁVÁNÍ
+    # ========================================================
+
+    st.markdown("---")
+
+    st.markdown(
+        "## 🤝 Vyjednávací kalkulačka"
+    )
+
+    st.markdown(
+        '<div class="section-intro">'
+        'Kolik nabídnout, kam se snažit dostat a kde už přestat.'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+    n1, n2, n3 = st.columns(3)
+
+    with n1:
+
+        score_card(
+            "Začít nabídkou",
+            negotiation.get(
+                "opening_offer",
+                "Neuvedeno"
+            )
+        )
+
+    with n2:
+
+        score_card(
+            "Cílová cena",
+            negotiation.get(
+                "target_price",
+                "Neuvedeno"
+            )
+        )
+
+    with n3:
+
+        score_card(
+            "MAXIMUM",
+            negotiation.get(
+                "maximum_price",
+                "Neuvedeno"
+            )
+        )
+
+    st.success(
+        "💰 Odhadovaný prostor pro úsporu: "
+        + negotiation.get(
+            "estimated_saving",
+            "Neuvedeno"
+        )
+    )
+
+    st.markdown(
+        "### 🎯 Argumenty pro vyjednávání"
+    )
+
+    for i, argument in enumerate(
+        negotiation.get(
+            "arguments",
+            []
+        ),
+        start=1
+    ):
+
+        with st.container(border=True):
+
+            st.markdown(
+                f"**{i}. {argument.get('argument', '')}**"
+            )
+
+            st.caption(
+                "Dopad na cenu: "
+                + argument.get(
+                    "impact",
+                    "Neuvedeno"
+                )
+            )
+
+
+    # ========================================================
+    # 9. MÁM TAM JET?
+    # ========================================================
+
+    st.markdown("---")
+
+    st.markdown(
+        "## 🏃 Mám tam jet?"
+    )
+
+    decision = visit.get(
+        "decision",
+        "SPÍŠ ANO"
+    )
+
+    if decision == "ANO":
+
+        st.success(
+            "🟢 **ANO – auto stojí za osobní prohlídku.**"
+        )
+
+    elif decision == "SPÍŠ ANO":
+
+        st.success(
+            "🟢 **SPÍŠ ANO – prohlídka dává smysl, "
+            "ale před cestou ověř několik věcí.**"
+        )
+
+    elif decision == "SPÍŠ NE":
+
+        st.warning(
+            "🟠 **SPÍŠ NE – před cestou si vyžádej "
+            "další informace.**"
+        )
+
+    else:
+
+        st.error(
+            "🔴 **NE – podle dostupných údajů "
+            "nemá smysl za autem jezdit.**"
+        )
+
+    st.markdown(
+        "### Proč?"
+    )
+
+    st.write(
+        visit.get(
+            "reason",
+            ""
+        )
+    )
+
+    vc1, vc2 = st.columns(2)
+
+    with vc1:
+
+        st.markdown(
+            "### 📞 Před cestou si vyžádej"
+        )
+
+        for item in visit.get(
+            "before_trip",
+            []
+        ):
+
+            st.markdown(
+                f"☐ {item}"
+            )
+
+    with vc2:
+
+        st.markdown(
+            "### 🔍 Přímo u auta zkontroluj"
+        )
+
+        for item in visit.get(
+            "at_car",
+            []
+        ):
+
+            st.markdown(
+                f"☐ {item}"
+            )
+
+
+    # ========================================================
+    # 10. CHECKLIST
+    # ========================================================
+
+    st.markdown("---")
+
+    st.markdown(
+        "## 🔍 Checklist prohlídky"
     )
 
     st.caption(
-        "Praktický seznam pro fyzickou prohlídku."
+        "Praktický seznam, který můžeš použít přímo u auta."
     )
-
 
     checklist = data.get(
         "checklist",
         []
     )
-
 
     for i, item in enumerate(
         checklist,
@@ -1940,7 +1976,7 @@ if "analysis" in st.session_state:
     ):
 
         with st.expander(
-            f"{i}. {item.get('item', '')}"
+            f"☐ {i}. {item.get('item', '')}"
         ):
 
             st.write(
@@ -1958,18 +1994,15 @@ if "analysis" in st.session_state:
     st.markdown("---")
 
     st.markdown(
-        "## 🔧 Odhad servisních nákladů"
+        "## 🔧 Servisní výhled"
     )
-
 
     service = data.get(
         "service",
         {}
     )
 
-
     s1, s2, s3, s4 = st.columns(4)
-
 
     with s1:
 
@@ -1981,7 +2014,6 @@ if "analysis" in st.session_state:
             )
         )
 
-
     with s2:
 
         score_card(
@@ -1991,7 +2023,6 @@ if "analysis" in st.session_state:
                 "Neuvedeno"
             )
         )
-
 
     with s3:
 
@@ -2003,11 +2034,10 @@ if "analysis" in st.session_state:
             )
         )
 
-
     with s4:
 
         score_card(
-            "Celkem / 2 roky",
+            "CELKEM / 2 ROKY",
             service.get(
                 "two_year_total",
                 "Neuvedeno"
@@ -2024,7 +2054,6 @@ if "analysis" in st.session_state:
     st.markdown(
         "## 🏆 Finální doporučení"
     )
-
 
     st.info(
         data.get(
@@ -2043,7 +2072,6 @@ if "analysis" in st.session_state:
     st.markdown(
         "### 📊 Celkové skóre"
     )
-
 
     try:
 
