@@ -31,7 +31,7 @@ if "form_model" not in st.session_state:
     st.session_state.form_fuel = "Benzín"
     st.session_state.form_gearbox = "Manuální"
 
-def call_groq(prompt_text, max_tokens=2500):
+def call_groq(prompt_text, max_tokens=3000):
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
@@ -42,7 +42,7 @@ def call_groq(prompt_text, max_tokens=2500):
         "temperature": 0.3,
         "max_tokens": max_tokens
     }
-    response = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=20)
+    response = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=30)
     if response.status_code != 200:
         raise Exception(f"API Error {response.status_code}: {response.text}")
     res_json = response.json()
@@ -117,17 +117,22 @@ if submitted:
     elif not model.strip():
         st.warning("Prosím zadej značku a model vozidla (nebo jej načti z inzerátu).")
     else:
-        with st.spinner("Špičkový mechanik a auditor prověřuje motor, převodovku, trh a rizika..."):
+        with st.spinner("Špičkový mechanik a auditor prověřuje motor, převodovku, výbavu, trh a rizika..."):
             try:
                 prompt = """
                 Jsi hlavní šéfmechanik, soudní znalec a expert na trh ojetých vozů v ČR s 25 lety praxe. 
-                Proveď maximálně detailní, nekompromisní a hloubkovou analýzu tohoto vozidla:
+                Proveď maximálně detailní, nekompromisní a hloubkovou analýzu tohoto vozidla. Využij přitom i kompletní text a výbavu z originálního inzerátu, pokud je níže k dispozici:
                 - Model: {model}
                 - Rok výroby: {year}
                 - Nájezd: {km} km
                 - Cena: {price} Kč
                 - Palivo: {fuel}
                 - Převodovka: {gearbox}
+                
+                Znění celého inzerátu (výbava, popis, stav):
+                ---
+                {full_ad}
+                ---
 
                 ABSOLUTNÍ PRAVIDLO: Celá odpověď včetně všech popisů, hodnocení a položek musí být psaná 100% plynulou češtinou. Žádná angličtina!
 
@@ -137,7 +142,7 @@ if submitted:
                     "verdict_summary": "1-2 věty ostrého shrnutí v češtině, proč tento verdikt",
                     "fair_price_min": minimální férová trhová cena v Kč (číslo),
                     "fair_price_max": maximální férová trhová cena v Kč (číslo),
-                    "price_evaluation": "Podrobný rozbor ceny v češtině vzhledem k aktuálnímu trhu v ČR, nájezdu a roku výroby",
+                    "price_evaluation": "Podrobný rozbor ceny v češtině vzhledem k aktuálnímu trhu v ČR, nájezdu, výbavě a roku výroby",
                     "engine_gearbox_analysis": "Detailní technický rozbor v češtině pro tento konkrétní model (typické slabiny, na co trpí, životnost rozvodů, vstřikovačů, turba nebo spojky/automatu)",
                     "common_failures": [
                         "Specifická závada/bolístka tohoto modelu 1 v češtině",
@@ -159,10 +164,11 @@ if submitted:
                     km=km,
                     price=price,
                     fuel=fuel,
-                    gearbox=gearbox
+                    gearbox=gearbox,
+                    full_ad=ad_text_input if ad_text_input.strip() else "Neuveden"
                 )
                 
-                result_text = call_groq(prompt, max_tokens=2500)
+                result_text = call_groq(prompt, max_tokens=4000)
                 if result_text.startswith("```json"):
                     result_text = result_text[7:]
                 if result_text.endswith("```"):
