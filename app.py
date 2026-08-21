@@ -29,7 +29,9 @@ if "form_model" not in st.session_state:
     st.session_state.raw_ad_loaded = False
 
 def call_groq_json(prompt_text, max_tokens=1500):
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    clean_api_key = str(api_key).strip().strip("'").strip('"')
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {"Authorization": f"Bearer {clean_api_key}", "Content-Type": "application/json"}
     payload = {
         "model": "openai/gpt-oss-20b",
         "messages": [
@@ -40,13 +42,15 @@ def call_groq_json(prompt_text, max_tokens=1500):
         "max_tokens": max_tokens
     }
     time.sleep(1)
-    response = requests.post("[https://api.groq.com/openai/v1/chat/completions](https://api.groq.com/openai/v1/chat/completions)", headers=headers, json=payload, timeout=60)
+    response = requests.post(url, headers=headers, json=payload, timeout=60)
     if response.status_code != 200:
         raise Exception(f"API Error {response.status_code}: {response.text}")
     return response.json()["choices"][0]["message"]["content"].strip()
 
 def call_groq_text(prompt_text, max_tokens=2500):
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    clean_api_key = str(api_key).strip().strip("'").strip('"')
+    url = "[https://api.groq.com/openai/v1/chat/completions](https://api.groq.com/openai/v1/chat/completions)"
+    headers = {"Authorization": f"Bearer {clean_api_key}", "Content-Type": "application/json"}
     payload = {
         "model": "openai/gpt-oss-20b",
         "messages": [{"role": "user", "content": prompt_text}],
@@ -54,7 +58,7 @@ def call_groq_text(prompt_text, max_tokens=2500):
         "max_tokens": max_tokens
     }
     time.sleep(1)
-    response = requests.post("[https://api.groq.com/openai/v1/chat/completions](https://api.groq.com/openai/v1/chat/completions)", headers=headers, json=payload, timeout=60)
+    response = requests.post(url, headers=headers, json=payload, timeout=60)
     if response.status_code != 200:
         raise Exception(f"API Error {response.status_code}: {response.text}")
     return response.json()["choices"][0]["message"]["content"].strip()
