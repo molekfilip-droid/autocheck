@@ -101,8 +101,3 @@ st.markdown("---")
 
 with st.expander("🔍 Zkontrolovat načtenou výbavu", expanded=True):
     st.info(st.session_state.parsed_equipment)
-
-st.markdown("### 🚗 Parametry vozidla")
-c1, c2 = st.columns(2)
-
-model = c1.text_input("Znač
