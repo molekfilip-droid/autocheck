@@ -29,7 +29,6 @@ if "form_model" not in st.session_state:
     st.session_state.raw_ad_loaded = False
 
 def call_groq(prompt_text, system_prompt="", max_tokens=2000, temperature=0.1):
-    # Bezpečné ošetření klíče, aby nikdy neovlivnil URL
     active_key = str(user_api_key).strip().strip("'").strip('"')
     if not active_key:
         raise Exception("Chybí Groq API klíč.")
@@ -47,7 +46,7 @@ def call_groq(prompt_text, system_prompt="", max_tokens=2000, temperature=0.1):
     messages.append({"role": "user", "content": prompt_text})
     
     payload = {
-        "model": "llama-3.3-70b-versatile",
+        "model": "llama-3.1-8b-instant",
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens
@@ -55,7 +54,6 @@ def call_groq(prompt_text, system_prompt="", max_tokens=2000, temperature=0.1):
     
     time.sleep(0.5)
     
-    # Explicitní a bezpečné zavolání requests.post
     response = requests.post(
         url=api_url, 
         headers=headers, 
@@ -101,7 +99,6 @@ Text inzerátu: "{clean_ad}"
 """
                 res = call_groq(p_text, system_prompt=sys_prompt, max_tokens=1500, temperature=0.0)
                 
-                # Očištění výstupu od případných markdown bloků
                 res_clean = re.sub(r'^```(?:json)?\s*', '', res, flags=re.IGNORECASE)
                 res_clean = re.sub(r'\s*```$', '', res_clean).strip()
                 
