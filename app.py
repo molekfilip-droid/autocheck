@@ -63,16 +63,13 @@ Text inzerátu: "{clean_ad}"
 """
                 res = call_groq(p_text, 2500)
                 
-                # Ošetření výstupu od markdownu
                 res = re.sub(r'^```json\s*', '', res, flags=re.IGNORECASE)
                 res = re.sub(r'^```\s*', '', res, flags=re.IGNORECASE)
                 res = re.sub(r'\s*```$', '', res)
                 
-                # Bezpečné nalezení JSON bloku
                 match = re.search(r'\{.*\}', res, re.DOTALL)
                 if match:
                     json_str = match.group(0)
-                    # Oprava častých chyb v JSONu od LLM (neescapované uvozovky uvnitř řetězců)
                     data = json.loads(json_str)
                 else:
                     raise Exception("Nenalezen validní JSON blok v odpovědi.")
@@ -91,9 +88,8 @@ Text inzerátu: "{clean_ad}"
                 st.session_state.parsed_equipment = str(data.get("equipment_summary", "Bez popisu výbavy."))
                 st.success("Kompletní data a detailní výbava úspěšně načteny!")
             except Exception as e:
-                # Fallback: pokud selže JSON, uložíme alespoň surový text do výbavy, aby uživatel nepřišel o data
                 st.session_state.parsed_equipment = ad_text_input
-                st.warning(fPozor: Automatické parsování narazilo na problém ({e}), ale text inzerátu byl zálohován. Můžeš pokračovat.)
+                st.warning(f"Pozor: Automatické parsování narazilo na problém ({e}), ale text inzerátu byl zálohován. Můžeš pokračovat.")
 
 st.markdown("---")
 
