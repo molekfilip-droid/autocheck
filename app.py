@@ -111,4 +111,4 @@ curr_f = st.session_state.get("form_fuel", "Benzín")
 f_index = f_opts.index(curr_f) if curr_f in f_opts else 0
 fuel = c1.selectbox("Palivo", f_opts, index=f_index)
 
-g
+g_opts = ["Manuální", "Automatická"]
